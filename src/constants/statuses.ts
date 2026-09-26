@@ -56,3 +56,18 @@ export const AGENT_RUN_STATUSES = [
 ] as const;
 
 export type AgentRunStatus = (typeof AGENT_RUN_STATUSES)[number];
+
+export const CAMPAIGN_STYLES = [
+  "Educational",
+  "Listicle",
+  "News / Updates",
+  "Tutorial",
+  "Storytelling",
+  "Promotional",
+] as const;
+
+export type CampaignStyle = (typeof CAMPAIGN_STYLES)[number];
+
+export const CAMPAIGN_DURATIONS = ["15-30", "30-45", "45-60"] as const;
+
+export type CampaignDuration = (typeof CAMPAIGN_DURATIONS)[number];
