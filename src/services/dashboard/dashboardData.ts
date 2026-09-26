@@ -122,7 +122,7 @@ export function getCampaignRows(): Promise<CampaignRow[] | null> {
     const campaigns = await Campaign.find()
       .sort({ createdAt: -1 })
       .limit(50)
-      .select("title topic videoCount status createdAt")
+      .select("title topic audience videoCount style durationMin durationMax status createdAt")
       .lean();
 
     return campaigns.map((campaign) => ({

@@ -2,7 +2,7 @@
 
 import { LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import {
   campaignFormSchema,
   durationToRange,
@@ -48,6 +48,7 @@ export function CampaignForm() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [generalError, setGeneralError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitLock = useRef(false);
 
   function updateField(field: FieldName, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -57,7 +58,7 @@ export function CampaignForm() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (isSubmitting) return;
+    if (submitLock.current) return;
 
     setGeneralError("");
     setFieldErrors({});
@@ -79,6 +80,7 @@ export function CampaignForm() {
       return;
     }
 
+    submitLock.current = true;
     setIsSubmitting(true);
 
     try {
@@ -117,6 +119,7 @@ export function CampaignForm() {
     } catch {
       setGeneralError("Something went wrong while creating the campaign. Please try again.");
     } finally {
+      submitLock.current = false;
       setIsSubmitting(false);
     }
   }
