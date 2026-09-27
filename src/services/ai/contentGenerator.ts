@@ -1,3 +1,4 @@
+import { GoogleGenAI } from "@google/genai";
 import Campaign from "@/models/Campaign";
 import Video from "@/models/Video";
 import { connectDB } from "@/lib/db/mongoose";
@@ -27,26 +28,16 @@ export interface GeneratedVideoRecord {
   scenes: unknown[];
 }
 
-interface ProviderRequestPayload {
-  model: string;
-  messages: Array<{
-    role: "system" | "user" | "assistant";
-    content: string;
-  }>;
-  response_format?: { type: "json_object" };
-}
-
 function getAiConfig() {
   const apiKey = process.env.AI_API_KEY;
   const model = process.env.AI_MODEL;
-  const baseUrl = process.env.AI_BASE_URL;
-  const provider = process.env.AI_PROVIDER || "openai";
+  const provider = process.env.AI_PROVIDER || "gemini";
 
-  if (!apiKey || !model || !baseUrl) {
+  if (!apiKey || !model) {
     return null;
   }
 
-  return { apiKey, model, provider, baseUrl };
+  return { apiKey, model, provider };
 }
 
 function sanitizeJsonCandidate(candidate: unknown): unknown {
@@ -78,47 +69,45 @@ async function callProvider(input: ContentGenerationInput): Promise<unknown> {
     throw new Error("AI generation is not configured on this server.");
   }
 
-  const requestBody: ProviderRequestPayload = {
-    model: aiConfig.model,
-    messages: [
-      { role: "system", content: buildContentGenerationSystemPrompt() },
-      { role: "user", content: buildContentGenerationUserPrompt(input) },
-    ],
-    response_format: { type: "json_object" },
-  };
-
-  const response = await fetch(`${aiConfig.baseUrl.replace(/\/$/, "")}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${aiConfig.apiKey}`,
-    },
-    body: JSON.stringify(requestBody),
-    signal: AbortSignal.timeout(30000),
-  });
-
-  if (!response.ok) {
-    let details = "AI provider request failed.";
-    try {
-      const errorBody = await response.json();
-      if (errorBody && typeof errorBody === "object" && "error" in errorBody) {
-        const errorValue = errorBody.error;
-        if (errorValue && typeof errorValue === "object" && "message" in errorValue) {
-          details = typeof errorValue.message === "string" ? errorValue.message : details;
-        }
-      }
-    } catch {
-      details = `AI provider request failed with status ${response.status}.`;
-    }
-
-    throw new Error(details);
+  if (aiConfig.provider.toLowerCase() !== "gemini") {
+    throw new Error(`Unsupported AI provider: ${aiConfig.provider}.`);
   }
 
-  const payload = await response.json();
-  const content = payload?.choices?.[0]?.message?.content;
+  const ai = new GoogleGenAI({ apiKey: aiConfig.apiKey });
+  const response = await ai.models.generateContent({
+    model: aiConfig.model,
+    contents: buildContentGenerationUserPrompt(input),
+    config: {
+      systemInstruction: buildContentGenerationSystemPrompt(),
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          videos: {
+            type: "ARRAY",
+            items: {
+              type: "OBJECT",
+              properties: {
+                title: { type: "STRING" },
+                hook: { type: "STRING" },
+                script: { type: "STRING" },
+                duration: { type: "INTEGER" },
+                caption: { type: "STRING" },
+                hashtags: { type: "ARRAY", items: { type: "STRING" } },
+                scenes: { type: "ARRAY", items: { type: "OBJECT", properties: {} } },
+              },
+              required: ["title", "hook", "script", "duration", "caption", "hashtags", "scenes"],
+            },
+          },
+        },
+        required: ["videos"],
+      },
+    },
+  });
+  const content = response.text;
 
   if (typeof content !== "string") {
-    throw new Error("AI provider returned an invalid response payload.");
+    throw new Error("Gemini returned an invalid response payload.");
   }
 
   return sanitizeJsonCandidate(content);

@@ -10,6 +10,10 @@ const VideoSceneSchema = new Schema<VideoScene>(
     visualPrompt: { type: String, required: true, trim: true },
     duration: { type: Number, required: true, min: 0.001 },
     assetPath: { type: String, trim: true },
+    assetType: { type: String, enum: ["ai", "stock", "local"] },
+    assetProvider: { type: String, enum: ["pollinations", "pexels", "local"] },
+    sourceUrl: { type: String, trim: true },
+    credit: { type: String, trim: true },
   },
   { _id: false },
 );

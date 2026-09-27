@@ -7,6 +7,10 @@ export interface VideoScene {
   visualPrompt: string;
   duration: number;
   assetPath?: string;
+  assetType?: "ai" | "stock" | "local";
+  assetProvider?: "pollinations" | "pexels" | "local";
+  sourceUrl?: string;
+  credit?: string;
 }
 
 export interface Video {

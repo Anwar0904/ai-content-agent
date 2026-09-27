@@ -13,6 +13,10 @@ const serverEnvSchema = z.object({
   AI_MODEL: z.string().trim().optional(),
   AI_PROVIDER: z.string().trim().optional(),
   AI_BASE_URL: z.string().trim().url().optional(),
+  POLLINATIONS_API_KEY: z.string().trim().optional(),
+  POLLINATIONS_IMAGE_MODEL: z.string().trim().optional(),
+  PEXELS_API_KEY: z.string().trim().optional(),
+  MEDIA_STORAGE_PATH: z.string().trim().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -24,6 +28,10 @@ export function getServerEnv(): ServerEnv {
     AI_MODEL: process.env.AI_MODEL ?? undefined,
     AI_PROVIDER: process.env.AI_PROVIDER ?? undefined,
     AI_BASE_URL: process.env.AI_BASE_URL ?? undefined,
+    POLLINATIONS_API_KEY: process.env.POLLINATIONS_API_KEY ?? undefined,
+    POLLINATIONS_IMAGE_MODEL: process.env.POLLINATIONS_IMAGE_MODEL ?? undefined,
+    PEXELS_API_KEY: process.env.PEXELS_API_KEY ?? undefined,
+    MEDIA_STORAGE_PATH: process.env.MEDIA_STORAGE_PATH ?? undefined,
   });
 
   if (!result.success) {

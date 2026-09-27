@@ -3,6 +3,7 @@ import PublishJob from "@/models/PublishJob";
 import SocialAccount from "@/models/SocialAccount";
 import Video from "@/models/Video";
 import { connectDB } from "@/lib/db/mongoose";
+import type { VideoScene } from "@/types/video";
 
 export interface ActivityItem {
   id: string;
@@ -41,6 +42,7 @@ export interface VideoRow {
   campaign: string;
   status: string;
   createdAt: Date;
+  scenes: VideoScene[];
 }
 
 export interface SocialAccountRow {
@@ -145,7 +147,7 @@ export function getVideoRows(): Promise<VideoRow[] | null> {
     const videos = await Video.find()
       .sort({ createdAt: -1 })
       .limit(50)
-      .select("title campaignId status createdAt")
+      .select("title campaignId status createdAt scenes")
       .lean();
     const campaignIds = videos.map((video) => video.campaignId);
     const campaigns = campaignIds.length
@@ -161,6 +163,7 @@ export function getVideoRows(): Promise<VideoRow[] | null> {
       campaign: campaignTitles.get(video.campaignId.toString()) ?? "Campaign unavailable",
       status: video.status,
       createdAt: video.createdAt,
+      scenes: video.scenes,
     }));
   });
 }

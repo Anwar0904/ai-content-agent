@@ -206,6 +206,14 @@ textarea.form-control { min-height: 84px; resize: vertical; padding-top: 10px; }
 .form-error { color: #a65049; font-size: 10px; line-height: 1.35; }
 .form-alert { margin: 0 25px; border: 1px solid #e7c7c2; border-radius: 5px; background: #fcf2f0; padding: 10px 12px; color: #9b4f48; font-size: 11px; line-height: 1.45; }
 .success-alert { margin: -9px 0 20px; border: 1px solid #cfe0d1; border-radius: 5px; background: #eef6ef; padding: 10px 12px; color: #4e7559; font-size: 11px; line-height: 1.45; }
+.scene-list { display: grid; min-width: 520px; gap: 10px; padding: 8px 0; }
+.scene-item { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; align-items: start; }
+.scene-image { width: 72px; height: 104px; border: 1px solid var(--border); border-radius: 5px; background: #eef1ed; object-fit: cover; }
+.scene-copy { display: grid; gap: 4px; min-width: 0; }
+.scene-copy p { margin: 0; color: #4b544d; font-size: 11px; line-height: 1.45; white-space: normal; }
+.scene-meta { display: flex; justify-content: space-between; gap: 8px; color: #39433b; font-size: 11px; }
+.scene-meta span { color: var(--muted-foreground); }
+.scene-copy .text-link { width: fit-content; font-size: 10px; }
 .button-spinner { animation: button-spin 0.8s linear infinite; }
 @keyframes button-spin { to { transform: rotate(360deg); } }
 .form-footer { display: flex; justify-content: flex-end; gap: 9px; padding: 17px 25px; border-top: 1px solid #edf0ed; }

@@ -17,3 +17,16 @@ export const contentGenerationResponseSchema = z.object({
 
 export type GeneratedVideo = z.infer<typeof generatedVideoSchema>;
 export type ContentGenerationResponse = z.infer<typeof contentGenerationResponseSchema>;
+
+export const generatedSceneSchema = z.object({
+  order: z.number().int().positive(),
+  narration: z.string().trim().min(1).max(2000),
+  visualPrompt: z.string().trim().min(20).max(1000),
+  duration: z.number().int().positive(),
+});
+
+export const sceneGenerationResponseSchema = z.object({
+  scenes: z.array(generatedSceneSchema).min(1),
+});
+
+export type GeneratedScene = z.infer<typeof generatedSceneSchema>;

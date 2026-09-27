@@ -8,11 +8,15 @@ const objectIdSchema = z
   });
 
 export const videoSceneSchema = z.object({
-  order: z.number().int().nonnegative(),
+  order: z.number().int().positive(),
   narration: z.string().trim().min(1),
   visualPrompt: z.string().trim().min(1),
   duration: z.number().finite().positive(),
   assetPath: z.string().trim().optional(),
+  assetType: z.enum(["ai", "stock", "local"]).optional(),
+  assetProvider: z.enum(["pollinations", "pexels", "local"]).optional(),
+  sourceUrl: z.string().url().optional(),
+  credit: z.string().trim().optional(),
 });
 
 export const videoSchema = z.object({

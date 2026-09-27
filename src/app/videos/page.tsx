@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatDate } from "@/lib/formatDate";
 import { getVideoRows } from "@/services/dashboard/dashboardData";
+import { VideoSceneActions } from "@/components/videos/VideoSceneActions";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,7 @@ export default async function VideosPage({
                   <td>{video.campaign}</td>
                   <td><StatusBadge status={video.status} /></td>
                   <td>{formatDate(video.createdAt)}</td>
-                  <td><span className="section-caption">Not available</span></td>
+                  <td><VideoSceneActions videoId={video.id} scenes={video.scenes} /></td>
                 </tr>
               ))}
             </tbody>
