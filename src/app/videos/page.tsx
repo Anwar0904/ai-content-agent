@@ -8,8 +8,14 @@ import { getVideoRows } from "@/services/dashboard/dashboardData";
 
 export const dynamic = "force-dynamic";
 
-export default async function VideosPage() {
+export default async function VideosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ generated?: string }>;
+}) {
   const videos = await getVideoRows();
+  const { generated } = await searchParams;
+  const generatedCount = Number(generated ?? 0);
 
   return (
     <>
@@ -17,6 +23,11 @@ export default async function VideosPage() {
         description="Review video drafts and follow their progress through the content workflow."
         title="Videos"
       />
+      {generatedCount > 0 && (
+        <div className="success-alert" role="status">
+          {generatedCount} videos generated successfully.
+        </div>
+      )}
       {videos === null ? (
         <ErrorState description="Videos couldn't be loaded. Check the database connection and try again." />
       ) : videos.length === 0 ? (

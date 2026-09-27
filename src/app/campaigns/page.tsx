@@ -1,5 +1,6 @@
 import { FolderKanban, Plus } from "lucide-react";
 import Link from "next/link";
+import { CampaignActions } from "@/components/campaigns/CampaignActions";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -57,6 +58,7 @@ export default async function CampaignsPage({
                 <th scope="col">Duration</th>
                 <th scope="col">Status</th>
                 <th scope="col">Created</th>
+                <th scope="col">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -70,6 +72,9 @@ export default async function CampaignsPage({
                   <td>{campaign.durationMin && campaign.durationMax ? `${campaign.durationMin}–${campaign.durationMax} sec` : "—"}</td>
                   <td><StatusBadge status={campaign.status} /></td>
                   <td>{formatDate(campaign.createdAt)}</td>
+                  <td>
+                    <CampaignActions campaignId={campaign.id} campaignStatus={campaign.status} videoCount={campaign.videoCount} />
+                  </td>
                 </tr>
               ))}
             </tbody>

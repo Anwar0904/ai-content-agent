@@ -9,6 +9,10 @@ const serverEnvSchema = z.object({
       (value) => !value || /^mongodb(?:\+srv)?:\/\//.test(value),
       "MONGODB_URI must be a MongoDB connection URI.",
     ),
+  AI_API_KEY: z.string().trim().optional(),
+  AI_MODEL: z.string().trim().optional(),
+  AI_PROVIDER: z.string().trim().optional(),
+  AI_BASE_URL: z.string().trim().url().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -16,6 +20,10 @@ export type ServerEnv = z.infer<typeof serverEnvSchema>;
 export function getServerEnv(): ServerEnv {
   const result = serverEnvSchema.safeParse({
     MONGODB_URI: process.env.MONGODB_URI ?? "",
+    AI_API_KEY: process.env.AI_API_KEY ?? undefined,
+    AI_MODEL: process.env.AI_MODEL ?? undefined,
+    AI_PROVIDER: process.env.AI_PROVIDER ?? undefined,
+    AI_BASE_URL: process.env.AI_BASE_URL ?? undefined,
   });
 
   if (!result.success) {
