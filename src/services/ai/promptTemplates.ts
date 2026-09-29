@@ -16,7 +16,7 @@ export function buildContentGenerationSystemPrompt(): string {
 }
 
 export function buildContentGenerationUserPrompt(input: ContentGenerationInput): string {
-  const { topic, audience, videoCount, style, durationMin, durationMax } = input;
+  const { topic, audience, videoCount, style, durationMin, durationMax, videoIndex } = input;
 
   return [
     "Generate a set of short-form videos based on the campaign brief below.",
@@ -25,6 +25,7 @@ export function buildContentGenerationUserPrompt(input: ContentGenerationInput):
     `Video count: ${videoCount}`,
     `Style: ${style}`,
     `Duration range: ${durationMin}–${durationMax} seconds per video`,
+    ...(videoIndex ? [`This is video ${videoIndex} of the campaign. Explore a distinct editorial angle from the other campaign videos.`] : []),
     "Requirements:",
     "- Create exactly the number of videos requested in the campaign.",
     "- Make each video feel like a distinct angle, not a minor rewording of the same idea.",

@@ -11,6 +11,11 @@ const renderVideoPayloadSchema = z.object({
   videoId: z.string().refine(isValidObjectId, "videoId must be a valid MongoDB ID."),
 });
 
+const generateContentPayloadSchema = z.object({
+  campaignId: z.string().refine(isValidObjectId, "campaignId must be a valid MongoDB ID."),
+  videoIndex: z.number().int().positive(),
+});
+
 export type PublicJob = Pick<
   JobRecord,
   "type" | "status" | "attempts" | "error" | "createdAt" | "startedAt" | "completedAt" | "failedAt" | "result"
@@ -33,8 +38,9 @@ function publicJob(job: JobRecord | null): PublicJob | null {
 }
 
 export function parseJobPayload(type: JobType, payload: Record<string, unknown>) {
-  if (type !== "RENDER_VIDEO") throw new Error(`Unsupported job type: ${type}`);
-  return renderVideoPayloadSchema.parse(payload);
+  if (type === "RENDER_VIDEO") return renderVideoPayloadSchema.parse(payload);
+  if (type === "GENERATE_CONTENT") return generateContentPayloadSchema.parse(payload);
+  throw new Error(`Unsupported job type: ${type}`);
 }
 
 export async function createJob({
@@ -79,6 +85,63 @@ export async function enqueueRenderJob(videoId: string) {
     }
     throw error;
   }
+}
+
+export async function enqueueCampaignGenerationJobs(campaignId: string, videoCount: number) {
+  const jobs: PublicJob[] = [];
+  for (let videoIndex = 1; videoIndex <= videoCount; videoIndex += 1) {
+    const dedupeKey = `GENERATE_CONTENT:${campaignId}:${videoIndex}`;
+    const existing = await Job.findOne({ dedupeKey, status: { $in: ["queued", "processing"] } }).lean() as JobRecord | null;
+    if (existing) {
+      jobs.push(publicJob(existing)!);
+      continue;
+    }
+
+    try {
+      const job = await createJob({
+        type: "GENERATE_CONTENT",
+        payload: { campaignId, videoIndex },
+        dedupeKey,
+      });
+      jobs.push(publicJob(job.toObject() as JobRecord)!);
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === 11000)) throw error;
+      const activeJob = await Job.findOne({ dedupeKey, status: { $in: ["queued", "processing"] } }).lean() as JobRecord | null;
+      if (!activeJob) throw error;
+      jobs.push(publicJob(activeJob)!);
+    }
+  }
+  return jobs;
+}
+
+export async function getCampaignGenerationSummary(campaignId: string) {
+  await connectDB();
+  const [{ default: Campaign }, jobs] = await Promise.all([
+    import("@/models/Campaign"),
+    Job.find({ dedupeKey: new RegExp(`^GENERATE_CONTENT:${campaignId}:`) }).sort({ createdAt: 1 }).lean() as Promise<JobRecord[]>,
+  ]);
+  const campaign = await Campaign.findById(campaignId).lean();
+  const counts = jobs.reduce<Record<string, number>>((result, job) => {
+    result[job.status] = (result[job.status] ?? 0) + 1;
+    return result;
+  }, {});
+  return {
+    campaignId,
+    total: campaign?.videoCount ?? jobs.length,
+    completed: counts.completed ?? 0,
+    failed: counts.failed ?? 0,
+    queued: counts.queued ?? 0,
+    processing: counts.processing ?? 0,
+    jobs: jobs.map((job) => publicJob(job)),
+  };
+}
+
+export async function finalizeCampaignGeneration(campaignId: string) {
+  const summary = await getCampaignGenerationSummary(campaignId);
+  if (summary.total !== summary.jobs.length || summary.queued + summary.processing > 0) return summary;
+  const { default: Campaign } = await import("@/models/Campaign");
+  await Campaign.findByIdAndUpdate(campaignId, { $set: { status: summary.failed > 0 ? "failed" : "ready" } });
+  return summary;
 }
 
 export async function recoverStaleJobs(lockedBefore: Date) {

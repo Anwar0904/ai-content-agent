@@ -2,6 +2,8 @@ import dotenv from "dotenv";
 import { connectDB, disconnectDB } from "@/lib/db/mongoose";
 import { getServerEnv } from "@/lib/env";
 import { claimJob, markCompleted, markFailed, parseJobPayload, recoverStaleJobs } from "@/services/jobs/jobService";
+import { finalizeCampaignGeneration } from "@/services/jobs/jobService";
+import { generateContentJob } from "./jobs/generateContent";
 import { renderVideoJob } from "./jobs/renderVideo";
 
 dotenv.config({ path: ".env.local" });
@@ -15,10 +17,12 @@ function delay(duration: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, duration));
 }
 
-function safeError(error: unknown) {
+function safeError(error: unknown, jobType: string) {
   if (error instanceof Error && error.message === "Video not found.") return error.message;
   if (error instanceof Error && error.message.includes("no scenes")) return "This video has no scenes to render.";
-  return "Video rendering failed. Please try again.";
+  return jobType === "GENERATE_CONTENT"
+    ? "Video generation failed. Please try again."
+    : "Video rendering failed. Please try again.";
 }
 
 async function processNextJob() {
@@ -27,14 +31,29 @@ async function processNextJob() {
   if (!job) return false;
 
   try {
-    const payload = parseJobPayload(job.type, job.payload);
-    if (job.type !== "RENDER_VIDEO") throw new Error(`Unsupported job type: ${job.type}`);
-    const result = await renderVideoJob(payload.videoId);
+    let result: Record<string, unknown>;
+    if (job.type === "GENERATE_CONTENT") {
+      const payload = parseJobPayload(job.type, job.payload);
+      if (!("campaignId" in payload)) throw new Error("Invalid content generation payload.");
+      result = await generateContentJob(payload.campaignId, payload.videoIndex);
+    } else if (job.type === "RENDER_VIDEO") {
+      const payload = parseJobPayload(job.type, job.payload);
+      if (!("videoId" in payload)) throw new Error("Invalid render payload.");
+      result = await renderVideoJob(payload.videoId);
+    } else {
+      throw new Error(`Unsupported job type: ${job.type}`);
+    }
     await markCompleted(job._id.toString(), result);
+    if (job.type === "GENERATE_CONTENT" && typeof job.payload.campaignId === "string") {
+      await finalizeCampaignGeneration(job.payload.campaignId);
+    }
     console.info("Job completed", { jobId: job._id.toString(), type: job.type });
   } catch (error) {
     console.error("Job failed", { jobId: job._id.toString(), type: job.type, error });
-    await markFailed(job._id.toString(), safeError(error));
+    await markFailed(job._id.toString(), safeError(error, job.type));
+    if (job.type === "GENERATE_CONTENT" && typeof job.payload.campaignId === "string") {
+      await finalizeCampaignGeneration(job.payload.campaignId);
+    }
   }
   return true;
 }

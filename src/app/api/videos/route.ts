@@ -14,6 +14,7 @@ export async function GET() {
         videos: videos.map((video) => ({
           id: video._id.toString(),
           campaignId: video.campaignId.toString(),
+          generationIndex: video.generationIndex,
           title: video.title,
           hook: video.hook,
           script: video.script,

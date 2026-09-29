@@ -1,9 +1,9 @@
 import { isValidObjectId } from "mongoose";
 import { NextResponse } from "next/server";
 import Campaign from "@/models/Campaign";
+import Video from "@/models/Video";
 import { connectDB } from "@/lib/db/mongoose";
-import { DEFAULT_VIDEO_TEMPLATE_ID } from "@/constants/statuses";
-import { generateContent, saveGeneratedVideosForCampaign } from "@/services/ai/contentGenerator";
+import { enqueueCampaignGenerationJobs } from "@/services/jobs/jobService";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ success: false, error: { message } }, { status });
@@ -36,52 +36,30 @@ export async function POST(
     return jsonError("Campaign not found.", 404);
   }
 
-  const previousStatus = typeof campaign.status === "string" ? campaign.status : "draft";
-
   if (campaign.status === "generating") {
     return jsonError("This campaign is already generating content.", 409);
   }
 
+  if (await Video.exists({ campaignId })) {
+    return jsonError("This campaign already has generated videos.", 409);
+  }
+
   try {
-    await Campaign.findByIdAndUpdate(campaignId, { status: "generating" }, { new: true });
+    const claimedCampaign = await Campaign.findOneAndUpdate(
+      { _id: campaignId, status: { $ne: "generating" } },
+      { $set: { status: "generating" } },
+      { returnDocument: "after" },
+    ).lean();
+    if (!claimedCampaign) return jsonError("This campaign is already generating content.", 409);
 
-    const generatedVideos = await generateContent({
-      topic: campaign.topic,
-      audience: campaign.audience,
-      videoCount: Number(campaign.videoCount ?? 1),
-      style: campaign.style ?? "Educational",
-      durationMin: Number(campaign.durationMin ?? 30),
-      durationMax: Number(campaign.durationMax ?? 45),
-    });
-
-    const templateId = campaign.templateId ?? DEFAULT_VIDEO_TEMPLATE_ID;
-    const savedVideos = await saveGeneratedVideosForCampaign(campaignId, generatedVideos, templateId);
-
-    await Campaign.findByIdAndUpdate(campaignId, { status: "ready" });
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          campaignId,
-          videos: savedVideos,
-        },
-      },
-      { status: 200 },
-    );
+    const jobs = await enqueueCampaignGenerationJobs(campaignId, Number(campaign.videoCount ?? 1));
+    return NextResponse.json({
+      success: true,
+      data: { campaignId, videoCount: campaign.videoCount, jobs },
+    }, { status: 202 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Something went wrong while generating content.";
-    await Campaign.findByIdAndUpdate(campaignId, { status: previousStatus });
-    console.error("Campaign generation failed:", { campaignId, message });
-
-    if (message === "AI generation is not configured on this server.") {
-      return jsonError("AI generation is currently unavailable on this server.", 503);
-    }
-
-    if (message === "The AI returned invalid structured video content." || message.includes("Generated video count") || message.includes("duration") || message.includes("Duplicate") || message.includes("meaningful title") || message.includes("hashtags")) {
-      return jsonError("The AI service returned invalid content for this campaign.", 422);
-    }
-
-    return jsonError("Something went wrong while generating content. Please try again.", 500);
+    await Campaign.findByIdAndUpdate(campaignId, { $set: { status: "draft" } });
+    console.error("Campaign generation job creation failed:", { campaignId, error });
+    return jsonError("Campaign generation could not be queued.", 500);
   }
 }

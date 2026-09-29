@@ -29,6 +29,7 @@ const VideoSchema = new Schema<VideoRecord>(
       ref: "Campaign",
       required: true,
     },
+    generationIndex: { type: Number, min: 1, validate: Number.isInteger },
     title: { type: String, required: true, trim: true },
     hook: { type: String, required: true, trim: true },
     script: { type: String, required: true, trim: true },

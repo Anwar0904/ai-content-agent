@@ -17,6 +17,7 @@ export interface ContentGenerationInput {
   style: string;
   durationMin: number;
   durationMax: number;
+  videoIndex?: number;
 }
 
 export interface GeneratedVideoRecord {
@@ -200,6 +201,7 @@ export async function saveGeneratedVideosForCampaign(
   campaignId: string,
   videos: GeneratedVideo[],
   templateId?: string,
+  startIndex = 1,
 ) {
   await connectDB();
 
@@ -211,8 +213,9 @@ export async function saveGeneratedVideosForCampaign(
   const resolvedTemplateId: VideoTemplateId =
     (templateId ?? campaign.templateId ?? DEFAULT_VIDEO_TEMPLATE_ID) as VideoTemplateId;
 
-  const payload: Array<Record<string, unknown>> = videos.map((video) => ({
+  const payload: Array<Record<string, unknown>> = videos.map((video, index) => ({
     campaignId,
+    generationIndex: startIndex + index,
     title: video.title,
     hook: video.hook,
     script: video.script,

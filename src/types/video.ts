@@ -15,6 +15,7 @@ export interface VideoScene {
 
 export interface Video {
   campaignId: Types.ObjectId;
+  generationIndex?: number;
   title: string;
   hook: string;
   script: string;

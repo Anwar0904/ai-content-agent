@@ -23,6 +23,7 @@ export async function getVideoDetail(videoId: string) {
 
   return {
     id: video._id.toString(),
+    generationIndex: video.generationIndex,
     title: video.title,
     hook: video.hook,
     script: video.script,
