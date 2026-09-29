@@ -4,6 +4,7 @@ import {
   type CreateCampaignInput,
 } from "@/schemas/campaign.schema";
 import { connectDB } from "@/lib/db/mongoose";
+import type { VideoTemplateId } from "@/constants/statuses";
 
 export interface CreatedCampaign {
   _id: string;
@@ -13,6 +14,7 @@ export interface CreatedCampaign {
   videoCount: number;
   status: "draft";
   style?: string;
+  templateId?: VideoTemplateId;
   durationMin?: number;
   durationMax?: number;
   createdAt: Date;
@@ -27,6 +29,7 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Create
     audience: input.audience,
     videoCount: input.videoCount,
     style: input.style,
+    templateId: input.templateId,
     durationMin: input.durationMin,
     durationMax: input.durationMax,
     status: "draft",
@@ -40,6 +43,7 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Create
     videoCount: campaign.videoCount,
     status: "draft",
     style: campaign.style,
+    templateId: campaign.templateId,
     durationMin: campaign.durationMin,
     durationMax: campaign.durationMax,
     createdAt: campaign.createdAt,

@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { VIDEO_STATUSES } from "../constants/statuses";
+import {
+  DEFAULT_VIDEO_TEMPLATE_ID,
+  VIDEO_STATUSES,
+  VIDEO_TEMPLATE_IDS,
+} from "../constants/statuses";
 
 const objectIdSchema = z
   .string()
@@ -28,6 +32,7 @@ export const videoSchema = z.object({
   hashtags: z.array(z.string().trim().min(1)).default([]),
   scenes: z.array(videoSceneSchema).default([]),
   videoPath: z.string().trim().optional(),
+  templateId: z.enum(VIDEO_TEMPLATE_IDS).default(DEFAULT_VIDEO_TEMPLATE_ID),
   status: z.enum(VIDEO_STATUSES).default("draft"),
 });
 

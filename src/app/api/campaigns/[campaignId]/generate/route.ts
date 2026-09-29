@@ -2,6 +2,7 @@ import { isValidObjectId } from "mongoose";
 import { NextResponse } from "next/server";
 import Campaign from "@/models/Campaign";
 import { connectDB } from "@/lib/db/mongoose";
+import { DEFAULT_VIDEO_TEMPLATE_ID } from "@/constants/statuses";
 import { generateContent, saveGeneratedVideosForCampaign } from "@/services/ai/contentGenerator";
 
 function jsonError(message: string, status: number) {
@@ -53,7 +54,8 @@ export async function POST(
       durationMax: Number(campaign.durationMax ?? 45),
     });
 
-    const savedVideos = await saveGeneratedVideosForCampaign(campaignId, generatedVideos);
+    const templateId = campaign.templateId ?? DEFAULT_VIDEO_TEMPLATE_ID;
+    const savedVideos = await saveGeneratedVideosForCampaign(campaignId, generatedVideos, templateId);
 
     await Campaign.findByIdAndUpdate(campaignId, { status: "ready" });
 

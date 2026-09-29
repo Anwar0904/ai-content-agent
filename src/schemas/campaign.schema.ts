@@ -3,6 +3,8 @@ import {
   CAMPAIGN_DURATIONS,
   CAMPAIGN_STATUSES,
   CAMPAIGN_STYLES,
+  DEFAULT_VIDEO_TEMPLATE_ID,
+  VIDEO_TEMPLATE_IDS,
 } from "../constants/statuses";
 
 export const campaignSchema = z
@@ -14,6 +16,7 @@ export const campaignSchema = z
     status: z.enum(CAMPAIGN_STATUSES).default("draft"),
     description: z.string().trim().max(2000).optional(),
     style: z.string().trim().max(200).optional(),
+    templateId: z.enum(VIDEO_TEMPLATE_IDS).default(DEFAULT_VIDEO_TEMPLATE_ID).optional(),
     durationMin: z.number().finite().nonnegative().optional(),
     durationMax: z.number().finite().nonnegative().optional(),
   })
@@ -40,6 +43,7 @@ export const campaignFormSchema = z.object({
   audience: z.string().trim().min(1, "Audience is required.").max(100),
   videoCount: z.number().int().min(1).max(20),
   style: z.enum(CAMPAIGN_STYLES),
+  templateId: z.enum(VIDEO_TEMPLATE_IDS).default(DEFAULT_VIDEO_TEMPLATE_ID),
   duration: z.enum(CAMPAIGN_DURATIONS),
 });
 
@@ -50,6 +54,7 @@ export const createCampaignSchema = z
     audience: z.string().trim().min(1, "Audience is required.").max(100),
     videoCount: z.number().int().min(1).max(20),
     style: z.enum(CAMPAIGN_STYLES),
+    templateId: z.enum(VIDEO_TEMPLATE_IDS).default(DEFAULT_VIDEO_TEMPLATE_ID),
     durationMin: z.number().int().min(15).max(45),
     durationMax: z.number().int().min(30).max(60),
   })

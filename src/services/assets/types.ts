@@ -15,3 +15,10 @@ export interface AssetResult {
 export interface AssetProvider {
   getAsset(input: AssetRequest): Promise<AssetResult>;
 }
+
+export class AssetProviderError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AssetProviderError";
+  }
+}

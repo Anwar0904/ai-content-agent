@@ -3,6 +3,7 @@
 import { LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type FormEvent } from "react";
+import { DEFAULT_VIDEO_TEMPLATE_ID, VIDEO_TEMPLATE_IDS } from "@/constants/statuses";
 import {
   campaignFormSchema,
   durationToRange,
@@ -15,6 +16,7 @@ interface FormValues {
   audience: string;
   videoCount: string;
   style: CampaignFormInput["style"];
+  templateId: CampaignFormInput["templateId"];
   duration: CampaignFormInput["duration"];
 }
 
@@ -27,6 +29,7 @@ const initialValues: FormValues = {
   audience: "",
   videoCount: "3",
   style: "Educational",
+  templateId: DEFAULT_VIDEO_TEMPLATE_ID,
   duration: "30-45",
 };
 
@@ -93,6 +96,7 @@ export function CampaignForm() {
           audience: parsed.data.audience,
           videoCount: parsed.data.videoCount,
           style: parsed.data.style,
+          templateId: parsed.data.templateId,
           ...durationToRange(parsed.data.duration),
         }),
       });
@@ -216,6 +220,22 @@ export function CampaignForm() {
               <option>Promotional</option>
             </select>
             {fieldErrors.style && <span className="form-error" id="campaign-style-error">Please select a valid video style.</span>}
+          </label>
+          <label className="form-field" htmlFor="campaign-templateId">
+            <span className="form-label">Video Template</span>
+            <select
+              {...errorProps("templateId")}
+              className="form-control"
+              name="templateId"
+              onChange={(event) => updateField("templateId", event.target.value)}
+              value={values.templateId}
+            >
+              {VIDEO_TEMPLATE_IDS.map((templateId) => (
+                <option key={templateId} value={templateId}>
+                  {templateId === "BIG_HOOK" ? "Big Hook" : templateId === "IMAGE_EXPLAINER" ? "Image Explainer" : "Top 5"}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="form-field" htmlFor="campaign-duration">
             <span className="form-label">Duration</span>

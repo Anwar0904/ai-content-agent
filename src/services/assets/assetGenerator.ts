@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import Campaign from "@/models/Campaign";
 import Video from "@/models/Video";
 import { connectDB } from "@/lib/db/mongoose";
 import { generateScenes } from "@/services/ai/sceneGenerator";
@@ -6,7 +7,7 @@ import { cleanupAssetRun, createAssetRun, promoteAssetRun, writeRunAsset } from 
 import { localProvider } from "@/services/assets/providers/local";
 import { pexelsProvider } from "@/services/assets/providers/pexels";
 import { pollinationsProvider } from "@/services/assets/providers/pollinations";
-import type { AssetResult } from "@/services/assets/types";
+import { AssetProviderError, type AssetResult } from "@/services/assets/types";
 import type { VideoScene } from "@/types/video";
 
 function providerLabel(result: AssetResult): string {
@@ -22,6 +23,7 @@ async function getAssetWithFallback(visualPrompt: string): Promise<AssetResult> 
       console.info("Day 6 asset provider selected", { provider: providerLabel(result) });
       return result;
     } catch (error) {
+      if (!(error instanceof AssetProviderError)) throw error;
       lastError = error;
       console.warn("Day 6 asset provider failed", { message: error instanceof Error ? error.message : "unknown provider error" });
     }
@@ -41,7 +43,7 @@ export async function generateVideoScenes(videoId: string): Promise<PreparedVide
   if (!video.script.trim()) throw new Error("Video has no script to turn into scenes.");
   if (video.scenes.length > 0) throw new Error("Scenes already exist for this video.");
 
-  const campaign = await (await import("@/models/Campaign")).default.findById(video.campaignId).lean();
+  const campaign = await Campaign.findById(video.campaignId).lean();
   const targetDurationMin = Number(campaign?.durationMin ?? 30);
   const targetDurationMax = Number(campaign?.durationMax ?? 45);
   const scenes = await generateScenes({
@@ -54,23 +56,20 @@ export async function generateVideoScenes(videoId: string): Promise<PreparedVide
 
   const runDirectory = await createAssetRun(video.campaignId.toString(), videoId, randomUUID());
   try {
-    const prepared: Array<{ scene: VideoScene; result: AssetResult }> = [];
+    const prepared: VideoScene[] = [];
     for (const scene of scenes) {
       const result = await getAssetWithFallback(scene.visualPrompt);
       await writeRunAsset(runDirectory, scene.order, result.buffer, result.mimeType);
       prepared.push({
-        result,
-        scene: {
-          ...scene,
-          assetType: result.type,
-          assetProvider: result.provider,
-          sourceUrl: result.sourceUrl,
-          credit: result.credit,
-        },
+        ...scene,
+        assetType: result.type,
+        assetProvider: result.provider,
+        sourceUrl: result.sourceUrl,
+        credit: result.credit,
       });
     }
     const assetPaths = await promoteAssetRun(runDirectory, video.campaignId.toString(), videoId, scenes.map((scene) => scene.order));
-    const finalScenes = prepared.map(({ scene }) => ({ ...scene, assetPath: assetPaths.get(scene.order) }));
+    const finalScenes = prepared.map((scene) => ({ ...scene, assetPath: assetPaths.get(scene.order) }));
     if (finalScenes.some((scene) => !scene.assetPath)) throw new Error("Prepared asset path is missing.");
     await Video.findByIdAndUpdate(videoId, { $set: { scenes: finalScenes } });
     return { scenes: finalScenes, assetCount: finalScenes.length };

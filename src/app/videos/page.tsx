@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatDate } from "@/lib/formatDate";
 import { getVideoRows } from "@/services/dashboard/dashboardData";
 import { VideoSceneActions } from "@/components/videos/VideoSceneActions";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ export default async function VideosPage({
               <tr>
                 <th scope="col">Video</th>
                 <th scope="col">Campaign</th>
+                <th scope="col">Template</th>
                 <th scope="col">Status</th>
                 <th scope="col">Created</th>
                 <th scope="col">Action</th>
@@ -53,11 +55,12 @@ export default async function VideosPage({
             <tbody>
               {videos.map((video) => (
                 <tr key={video.id}>
-                  <td><span className="table-primary">{video.title}</span></td>
+                  <td><Link className="video-title-link" href={`/videos/${video.id}`}>{video.title}</Link></td>
                   <td>{video.campaign}</td>
+                  <td>{video.templateLabel ?? "Big Hook"}</td>
                   <td><StatusBadge status={video.status} /></td>
                   <td>{formatDate(video.createdAt)}</td>
-                  <td><VideoSceneActions videoId={video.id} scenes={video.scenes} /></td>
+                  <td><VideoSceneActions videoId={video.id} scenes={video.scenes} videoPath={video.videoPath} /></td>
                 </tr>
               ))}
             </tbody>

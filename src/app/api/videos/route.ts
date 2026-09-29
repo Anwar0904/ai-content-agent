@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Video from "@/models/Video";
 import { connectDB } from "@/lib/db/mongoose";
+import { toPublicMediaUrl } from "@/services/video/videoDetails";
 
 export async function GET() {
   try {
@@ -18,7 +19,19 @@ export async function GET() {
           script: video.script,
           caption: video.caption,
           hashtags: video.hashtags,
-          scenes: video.scenes,
+          scenes: video.scenes.map((scene) => ({
+            order: scene.order,
+            narration: scene.narration,
+            visualPrompt: scene.visualPrompt,
+            duration: scene.duration,
+            assetType: scene.assetType,
+            assetProvider: scene.assetProvider,
+            assetPath: toPublicMediaUrl(scene.assetPath),
+            sourceUrl: scene.sourceUrl,
+            credit: scene.credit,
+          })),
+          videoPath: toPublicMediaUrl(video.videoPath),
+          templateId: video.templateId,
           status: video.status,
           createdAt: video.createdAt,
           updatedAt: video.updatedAt,

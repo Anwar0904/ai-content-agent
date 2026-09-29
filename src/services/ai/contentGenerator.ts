@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import Campaign from "@/models/Campaign";
 import Video from "@/models/Video";
+import { DEFAULT_VIDEO_TEMPLATE_ID, type VideoTemplateId } from "@/constants/statuses";
 import { connectDB } from "@/lib/db/mongoose";
 import { buildContentGenerationSystemPrompt, buildContentGenerationUserPrompt } from "@/services/ai/promptTemplates";
 import {
@@ -195,7 +196,11 @@ export async function generateContent(input: ContentGenerationInput): Promise<Ge
   return parsed.data.videos;
 }
 
-export async function saveGeneratedVideosForCampaign(campaignId: string, videos: GeneratedVideo[]) {
+export async function saveGeneratedVideosForCampaign(
+  campaignId: string,
+  videos: GeneratedVideo[],
+  templateId?: string,
+) {
   await connectDB();
 
   const campaign = await Campaign.findById(campaignId).lean();
@@ -203,16 +208,10 @@ export async function saveGeneratedVideosForCampaign(campaignId: string, videos:
     throw new Error("Campaign not found.");
   }
 
-  const payload: Array<{
-    campaignId: string;
-    title: string;
-    hook: string;
-    script: string;
-    caption: string;
-    hashtags: string[];
-    scenes: never[];
-    status: "draft";
-  }> = videos.map((video) => ({
+  const resolvedTemplateId: VideoTemplateId =
+    (templateId ?? campaign.templateId ?? DEFAULT_VIDEO_TEMPLATE_ID) as VideoTemplateId;
+
+  const payload: Array<Record<string, unknown>> = videos.map((video) => ({
     campaignId,
     title: video.title,
     hook: video.hook,
@@ -220,14 +219,16 @@ export async function saveGeneratedVideosForCampaign(campaignId: string, videos:
     caption: video.caption,
     hashtags: video.hashtags,
     scenes: [],
+    templateId: resolvedTemplateId,
     status: "draft",
   }));
 
+  type VideoCreateInput = Parameters<typeof Video.create>[0];
   const createdIds: string[] = [];
 
   try {
     for (const item of payload) {
-      const document = await Video.create(item);
+      const document = await Video.create(item as VideoCreateInput);
       createdIds.push(document._id.toString());
     }
   } catch (error) {

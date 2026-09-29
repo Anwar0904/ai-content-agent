@@ -68,6 +68,12 @@ export const CAMPAIGN_STYLES = [
 
 export type CampaignStyle = (typeof CAMPAIGN_STYLES)[number];
 
+export const VIDEO_TEMPLATE_IDS = ["BIG_HOOK", "IMAGE_EXPLAINER", "TOP_5"] as const;
+
+export type VideoTemplateId = (typeof VIDEO_TEMPLATE_IDS)[number];
+
+export const DEFAULT_VIDEO_TEMPLATE_ID: VideoTemplateId = "BIG_HOOK";
+
 export const CAMPAIGN_DURATIONS = ["15-30", "30-45", "45-60"] as const;
 
 export type CampaignDuration = (typeof CAMPAIGN_DURATIONS)[number];

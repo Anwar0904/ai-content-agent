@@ -17,6 +17,11 @@ const serverEnvSchema = z.object({
   POLLINATIONS_IMAGE_MODEL: z.string().trim().optional(),
   PEXELS_API_KEY: z.string().trim().optional(),
   MEDIA_STORAGE_PATH: z.string().trim().optional(),
+  TTS_PROVIDER: z.string().trim().optional(),
+  TTS_MODEL: z.string().trim().optional(),
+  TTS_VOICE: z.string().trim().optional(),
+  TTS_MIN_REQUEST_INTERVAL_MS: z.string().trim().optional(),
+  TTS_MAX_RETRIES: z.string().trim().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -32,6 +37,11 @@ export function getServerEnv(): ServerEnv {
     POLLINATIONS_IMAGE_MODEL: process.env.POLLINATIONS_IMAGE_MODEL ?? undefined,
     PEXELS_API_KEY: process.env.PEXELS_API_KEY ?? undefined,
     MEDIA_STORAGE_PATH: process.env.MEDIA_STORAGE_PATH ?? undefined,
+    TTS_PROVIDER: process.env.TTS_PROVIDER ?? undefined,
+    TTS_MODEL: process.env.TTS_MODEL ?? undefined,
+    TTS_VOICE: process.env.TTS_VOICE ?? undefined,
+    TTS_MIN_REQUEST_INTERVAL_MS: process.env.TTS_MIN_REQUEST_INTERVAL_MS ?? undefined,
+    TTS_MAX_RETRIES: process.env.TTS_MAX_RETRIES ?? undefined,
   });
 
   if (!result.success) {

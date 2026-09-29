@@ -1,5 +1,9 @@
 import { model, models, Schema, type Model } from "mongoose";
-import { VIDEO_STATUSES } from "../constants/statuses";
+import {
+  DEFAULT_VIDEO_TEMPLATE_ID,
+  VIDEO_STATUSES,
+  VIDEO_TEMPLATE_IDS,
+} from "../constants/statuses";
 import type { Video as VideoRecord, VideoScene } from "../types/video";
 import Campaign from "./Campaign";
 
@@ -32,6 +36,11 @@ const VideoSchema = new Schema<VideoRecord>(
     hashtags: { type: [String], default: [] },
     scenes: { type: [VideoSceneSchema], default: [] },
     videoPath: { type: String, trim: true },
+    templateId: {
+      type: String,
+      enum: [...VIDEO_TEMPLATE_IDS],
+      default: DEFAULT_VIDEO_TEMPLATE_ID,
+    },
     status: {
       type: String,
       enum: [...VIDEO_STATUSES],

@@ -1,5 +1,5 @@
 import type { Types } from "mongoose";
-import type { VideoStatus } from "../constants/statuses";
+import type { VideoStatus, VideoTemplateId } from "../constants/statuses";
 
 export interface VideoScene {
   order: number;
@@ -22,6 +22,7 @@ export interface Video {
   hashtags: string[];
   scenes: VideoScene[];
   videoPath?: string;
+  templateId?: VideoTemplateId;
   status: VideoStatus;
   createdAt: Date;
   updatedAt: Date;
