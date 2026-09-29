@@ -44,3 +44,11 @@ export async function connectDB(): Promise<Mongoose> {
     throw error;
   }
 }
+
+export async function disconnectDB(): Promise<void> {
+  if (cache.connection) {
+    await mongoose.disconnect();
+    cache.connection = null;
+    cache.promise = null;
+  }
+}

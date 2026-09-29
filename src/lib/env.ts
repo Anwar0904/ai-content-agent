@@ -22,6 +22,8 @@ const serverEnvSchema = z.object({
   TTS_VOICE: z.string().trim().optional(),
   TTS_MIN_REQUEST_INTERVAL_MS: z.string().trim().optional(),
   TTS_MAX_RETRIES: z.string().trim().optional(),
+  JOB_POLL_INTERVAL_MS: z.string().trim().optional(),
+  JOB_LOCK_TIMEOUT_MS: z.string().trim().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -42,6 +44,8 @@ export function getServerEnv(): ServerEnv {
     TTS_VOICE: process.env.TTS_VOICE ?? undefined,
     TTS_MIN_REQUEST_INTERVAL_MS: process.env.TTS_MIN_REQUEST_INTERVAL_MS ?? undefined,
     TTS_MAX_RETRIES: process.env.TTS_MAX_RETRIES ?? undefined,
+    JOB_POLL_INTERVAL_MS: process.env.JOB_POLL_INTERVAL_MS ?? undefined,
+    JOB_LOCK_TIMEOUT_MS: process.env.JOB_LOCK_TIMEOUT_MS ?? undefined,
   });
 
   if (!result.success) {

@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "worker": "tsx worker/worker.ts",
     "lint": "eslint",
     "verify:db": "tsx scripts/verify-db.ts"
   },

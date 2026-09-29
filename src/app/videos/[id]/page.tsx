@@ -39,7 +39,7 @@ export default async function VideoDetailPage({
             <div className="video-not-rendered">
               <h2>Video not rendered yet</h2>
               <p>Render this video to generate the final MP4.</p>
-              <VideoDetailActions canRender={video.scenes.length > 0} status={video.status} videoId={video.id} />
+              <VideoDetailActions canRender={video.scenes.length > 0} initialJob={video.renderJob} status={video.status} videoId={video.id} />
             </div>
           )}
         </div>

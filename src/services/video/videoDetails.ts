@@ -1,6 +1,7 @@
 import Video from "@/models/Video";
 import { connectDB } from "@/lib/db/mongoose";
 import { getVideoTemplateLabel } from "@/templates/types";
+import { getActiveRenderJob } from "@/services/jobs/jobService";
 
 export function toPublicMediaUrl(value?: string | null): string | undefined {
   if (!value?.startsWith("/generated-assets/")) return undefined;
@@ -17,6 +18,8 @@ export async function getVideoDetail(videoId: string) {
   await connectDB();
   const video = await Video.findById(videoId).lean();
   if (!video) return null;
+
+  const renderJob = await getActiveRenderJob(videoId);
 
   return {
     id: video._id.toString(),
@@ -40,5 +43,6 @@ export async function getVideoDetail(videoId: string) {
     })),
     createdAt: video.createdAt,
     updatedAt: video.updatedAt,
+    renderJob,
   };
 }
