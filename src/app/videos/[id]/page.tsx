@@ -39,7 +39,7 @@ export default async function VideoDetailPage({
             <div className="video-not-rendered">
               <h2>Video not rendered yet</h2>
               <p>Render this video to generate the final MP4.</p>
-              <VideoDetailActions videoId={video.id} canRender={video.scenes.length > 0} />
+              <VideoDetailActions canRender={video.scenes.length > 0} status={video.status} videoId={video.id} />
             </div>
           )}
         </div>
@@ -109,8 +109,13 @@ export default async function VideoDetailPage({
       </section>
 
       <section aria-label="Video actions" className="video-detail-actions-section">
-        <VideoDetailActions videoId={video.id} />
-        <p className="section-caption">Editing, regeneration, approval, and rejection are not available yet.</p>
+        <VideoDetailActions status={video.status} videoId={video.id} />
+        <p className="section-caption">
+          {video.status === "review" && "Approve or reject this video before it can enter the publishing flow."}
+          {video.status === "approved" && "This video is approved and ready for future publishing."}
+          {video.status === "rejected" && "This video is rejected and excluded from the publishing flow."}
+          {!['review', 'approved', 'rejected'].includes(video.status) && "Review status will appear here once the video reaches the approval stage."}
+        </p>
       </section>
     </>
   );

@@ -41,6 +41,7 @@ const VideoSchema = new Schema<VideoRecord>(
       enum: [...VIDEO_TEMPLATE_IDS],
       default: DEFAULT_VIDEO_TEMPLATE_ID,
     },
+    reviewedAt: { type: Date },
     status: {
       type: String,
       enum: [...VIDEO_STATUSES],

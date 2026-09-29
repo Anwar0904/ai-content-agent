@@ -26,6 +26,7 @@ export async function getVideoDetail(videoId: string) {
     caption: video.caption,
     hashtags: video.hashtags,
     status: video.status,
+    reviewedAt: video.reviewedAt ?? null,
     templateId: video.templateId,
     templateLabel: getVideoTemplateLabel(video.templateId),
     videoPath: toPublicMediaUrl(video.videoPath),

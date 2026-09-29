@@ -23,6 +23,7 @@ export interface Video {
   scenes: VideoScene[];
   videoPath?: string;
   templateId?: VideoTemplateId;
+  reviewedAt?: Date | null;
   status: VideoStatus;
   createdAt: Date;
   updatedAt: Date;

@@ -14,7 +14,7 @@ export default async function PublishingPage() {
   return (
     <>
       <PageHeader
-        description="Monitor delivery status across your connected publishing destinations."
+        description="Monitor delivery status across your connected publishing destinations. Only approved videos may enter the publishing pipeline."
         title="Publishing"
       />
       {jobs === null ? (

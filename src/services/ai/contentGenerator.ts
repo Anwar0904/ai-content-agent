@@ -220,7 +220,8 @@ export async function saveGeneratedVideosForCampaign(
     hashtags: video.hashtags,
     scenes: [],
     templateId: resolvedTemplateId,
-    status: "draft",
+    status: "review",
+    reviewedAt: null,
   }));
 
   type VideoCreateInput = Parameters<typeof Video.create>[0];
