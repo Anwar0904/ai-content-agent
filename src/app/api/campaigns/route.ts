@@ -10,7 +10,7 @@ function validationFields(issues: Array<{ path: PropertyKey[]; message: string }
     if (typeof field === "string" && !fields[field]) {
       fields[field] =
         field === "videoCount"
-          ? "Number of videos must be between 1 and 20."
+          ? "Number of videos must be between 1 and 5."
           : field === "style"
             ? "Please select a valid video style."
             : field === "duration" || field === "durationMin" || field === "durationMax"

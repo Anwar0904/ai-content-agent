@@ -187,15 +187,15 @@ export function CampaignForm() {
             <input
               {...errorProps("videoCount")}
               className="form-control"
-              max={20}
+              max={5}
               min={1}
               name="videoCount"
               onChange={(event) => updateField("videoCount", event.target.value)}
               type="number"
               value={values.videoCount}
             />
-            <span className="form-hint">Choose between 1 and 20 videos.</span>
-            {fieldErrors.videoCount && <span className="form-error" id="campaign-videoCount-error">Number of videos must be between 1 and 20.</span>}
+            <span className="form-hint">Choose between 1 and 5 videos.</span>
+            {fieldErrors.videoCount && <span className="form-error" id="campaign-videoCount-error">Number of videos must be between 1 and 5.</span>}
           </label>
         </div>
       </section>

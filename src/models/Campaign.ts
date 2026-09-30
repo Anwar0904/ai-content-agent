@@ -11,7 +11,7 @@ const CampaignSchema = new Schema<CampaignRecord>(
     title: { type: String, required: true, trim: true },
     topic: { type: String, required: true, trim: true },
     audience: { type: String, required: true, trim: true },
-    videoCount: { type: Number, required: true, min: 1, validate: Number.isInteger },
+    videoCount: { type: Number, required: true, min: 1, max: 5, validate: Number.isInteger },
     status: {
       type: String,
       enum: [...CAMPAIGN_STATUSES],

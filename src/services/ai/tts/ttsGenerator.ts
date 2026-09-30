@@ -36,7 +36,7 @@ function requestIntervalMs(): number {
 }
 
 function maxRetries(): number {
-  return Math.min(2, Math.floor(configuredNumber("TTS_MAX_RETRIES", 2)));
+  return Math.min(1, Math.floor(configuredNumber("TTS_MAX_RETRIES", 1)));
 }
 
 async function waitForTtsRateLimit() {
@@ -51,8 +51,17 @@ function retryAfterMs(error: unknown): number | undefined {
   const retryAfter = candidate.retryAfter;
   if (typeof retryAfter === "number" && Number.isFinite(retryAfter)) return Math.min(60_000, Math.max(0, retryAfter * 1000));
   if (typeof retryAfter === "string" && Number.isFinite(Number(retryAfter))) return Math.min(60_000, Math.max(0, Number(retryAfter) * 1000));
-  const header = candidate.headers?.get?.("retry-after") || candidate.response?.headers?.get?.("retry-after");
-  if (header && Number.isFinite(Number(header))) return Math.min(60_000, Math.max(0, Number(header) * 1000));
+  const headers = candidate.headers || candidate.response?.headers;
+  const retryAfterMs = headers?.get?.("retry-after-ms");
+  if (retryAfterMs && Number.isFinite(Number(retryAfterMs))) {
+    return Math.min(60_000, Math.max(0, Number(retryAfterMs)));
+  }
+  const header = headers?.get?.("retry-after");
+  if (header) {
+    const seconds = Number(header);
+    const delay = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(header) - Date.now();
+    if (Number.isFinite(delay)) return Math.min(60_000, Math.max(0, delay));
+  }
   return undefined;
 }
 
