@@ -19,6 +19,7 @@ function delay(duration: number) {
 }
 
 function safeError(error: unknown, jobType: string) {
+  if (jobType === "PUBLISH_VIDEO" && error instanceof Error) return error.message;
   if (error instanceof Error && error.message === "Video not found.") return error.message;
   if (error instanceof Error && error.message.includes("no scenes")) return "This video has no scenes to render.";
   return jobType === "GENERATE_CONTENT"

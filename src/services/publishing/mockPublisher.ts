@@ -7,6 +7,7 @@ export interface MockPublishRequest {
   accountId?: string;
   accountName?: string;
   caption?: string;
+  title?: string;
   videoPath?: string | null;
 }
 

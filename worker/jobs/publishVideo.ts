@@ -1,6 +1,7 @@
 import PublishJob from "@/models/PublishJob";
 import SocialAccount from "@/models/SocialAccount";
 import Video from "@/models/Video";
+import { FacebookPublisher } from "@/services/publishing/facebookPublisher";
 import { getMockPublisher } from "@/services/publishing/mockPublisher";
 
 export async function publishVideoJob(jobPayload: { videoId: string; socialAccountId: string; platform?: string; publishJobId?: string }) {
@@ -20,13 +21,14 @@ export async function publishVideoJob(jobPayload: { videoId: string; socialAccou
   if (account.status !== "connected") throw new Error("This social account is not connected.");
 
   const platform = (jobPayload.platform ?? account.platform) as "facebook" | "instagram";
-  const publisher = getMockPublisher(platform);
+  const publisher = platform === "facebook" ? new FacebookPublisher() : getMockPublisher("instagram");
   const result = await publisher.publish({
     videoId: video._id.toString(),
     socialAccountId: account._id.toString(),
     platform,
     accountId: account.accountId,
     accountName: account.accountName,
+    title: video.title,
     caption: video.caption,
     videoPath: video.videoPath,
   });

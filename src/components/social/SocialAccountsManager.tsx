@@ -1,11 +1,12 @@
 "use client";
 
-import { Camera, Check, Globe2, LoaderCircle, Unplug } from "lucide-react";
+import { Camera, Check, LoaderCircle, Unplug } from "lucide-react";
+import { FacebookPages } from "./FacebookPages";
 import { useState } from "react";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import type { SocialAccountRow } from "@/services/dashboard/dashboardData";
 
-const platforms = ["facebook", "instagram"] as const;
+const platforms = ["instagram"] as const;
 
 function formatDate(value: string | Date) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
@@ -35,11 +36,12 @@ export function SocialAccountsManager({ accounts }: { accounts: SocialAccountRow
     <>
       {error && <div className="form-alert" role="alert">{error}</div>}
       <section aria-label="Social account connections" className="account-grid">
+        <FacebookPages accounts={accounts} />
         {platforms.map((platform) => {
           const account = accountRows.find((row) => row.platform === platform);
           const isBusy = busyPlatform === platform;
-          const Icon = platform === "facebook" ? Globe2 : Camera;
-          const label = platform === "facebook" ? "Facebook Pages" : "Instagram";
+          const Icon = Camera;
+          const label = "Instagram";
           return (
             <article className="account-card" key={platform}>
               <div className="account-card-heading">
@@ -74,7 +76,7 @@ export function SocialAccountsManager({ accounts }: { accounts: SocialAccountRow
           );
         })}
       </section>
-      <p className="account-shell-note">Development OAuth shell only. No Meta authorization or access-token exchange is performed.</p>
+      <p className="account-shell-note">Instagram uses a mock connection.</p>
     </>
   );
 }
