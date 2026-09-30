@@ -21,6 +21,9 @@ export function VideoDetailActions({
   const router = useRouter();
   const [jobId, setJobId] = useState(initialJob?.id ?? null);
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(initialJob?.status ?? null);
+  const [publishStatus, setPublishStatus] = useState<JobStatus | null>(null);
+  const [publishError, setPublishError] = useState("");
+  const [publishAccountId, setPublishAccountId] = useState<string>("");
   const [isReviewing, setIsReviewing] = useState(false);
   const [pendingAction, setPendingAction] = useState<ReviewAction | null>(null);
   const [error, setError] = useState("");
@@ -82,6 +85,39 @@ export function VideoDetailActions({
     }
   }
 
+  async function publishVideo(platform: "facebook" | "instagram") {
+    if (!publishAccountId) {
+      setPublishError("Select a mock social account first.");
+      return;
+    }
+
+    setPublishStatus("queued");
+    setPublishError("");
+
+    try {
+      const response = await fetch(`/api/videos/${videoId}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ socialAccountId: publishAccountId }),
+      });
+      const result = (await response.json()) as { data?: { job?: { id: string; status: JobStatus } }; error?: { message?: string } };
+      if (!response.ok) {
+        setPublishError(result.error?.message || `Mock ${platform} publish failed.`);
+        setPublishStatus(null);
+        return;
+      }
+      if (!result.data?.job) {
+        setPublishError("Publishing job was not returned by the server.");
+        setPublishStatus(null);
+        return;
+      }
+      setPublishStatus(result.data.job.status);
+    } catch {
+      setPublishError(`Mock ${platform} publishing failed.`);
+      setPublishStatus(null);
+    }
+  }
+
   async function submitReview(action: ReviewAction) {
     if (isReviewing || !isInReview) return;
 
@@ -121,6 +157,19 @@ export function VideoDetailActions({
         <button className="primary-link" disabled={isRendering || isReviewing} onClick={renderVideo} type="button">
           {jobStatus === "queued" ? <><LoaderCircle aria-hidden="true" className="button-spinner" size={14} /> Queued...</> : isRendering ? <><LoaderCircle aria-hidden="true" className="button-spinner" size={14} /> Rendering video...</> : "Render video"}
         </button>
+      )}
+      {status === "approved" && (
+        <div className="publish-controls">
+          <select aria-label="Select mock publishing destination" defaultValue="" onChange={(event) => setPublishAccountId(event.target.value)} value={publishAccountId}>
+            <option value="">Select mock destination</option>
+            <option value="mock-facebook-page-1">Mock Facebook Page</option>
+            <option value="mock-instagram-account-1">Mock Instagram Account</option>
+          </select>
+          <button className="secondary-link" disabled={!publishAccountId || !!publishStatus} onClick={() => publishVideo(publishAccountId.startsWith("mock-facebook") ? "facebook" : "instagram")} type="button">
+            {publishStatus === "queued" ? <><LoaderCircle aria-hidden="true" className="button-spinner" size={14} /> Queued...</> : publishStatus === "processing" ? <><LoaderCircle aria-hidden="true" className="button-spinner" size={14} /> Publishing...</> : `Publish to ${publishAccountId.includes("facebook") ? "Facebook" : "Instagram"}`}
+          </button>
+          {publishError && <p className="form-error" role="alert">{publishError}</p>}
+        </div>
       )}
       <button className="secondary-link" disabled title="Video editing is not available yet." type="button">Edit</button>
       <button className="secondary-link" disabled title="Video regeneration is not available yet." type="button">Regenerate</button>

@@ -1,5 +1,5 @@
 import { model, models, Schema, type Model } from "mongoose";
-import { PUBLISH_JOB_STATUSES } from "../constants/statuses";
+import { PUBLISH_JOB_STATUSES, SOCIAL_PLATFORMS } from "../constants/statuses";
 import type { PublishJob as PublishJobRecord } from "../types/publishJob";
 import SocialAccount from "./SocialAccount";
 import Video from "./Video";
@@ -10,6 +10,11 @@ const PublishJobSchema = new Schema<PublishJobRecord>(
     socialAccountId: {
       type: Schema.Types.ObjectId,
       ref: "SocialAccount",
+      required: true,
+    },
+    platform: {
+      type: String,
+      enum: [...SOCIAL_PLATFORMS],
       required: true,
     },
     status: {

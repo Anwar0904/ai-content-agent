@@ -20,6 +20,7 @@ export async function getVideoDetail(videoId: string) {
   if (!video) return null;
 
   const renderJob = await getActiveRenderJob(videoId);
+  const publishJob = await getActivePublishJobByVideo(videoId);
 
   return {
     id: video._id.toString(),
@@ -45,5 +46,18 @@ export async function getVideoDetail(videoId: string) {
     createdAt: video.createdAt,
     updatedAt: video.updatedAt,
     renderJob,
+    publishJob,
+  };
+}
+
+async function getActivePublishJobByVideo(videoId: string) {
+  const PublishJob = (await import("@/models/PublishJob")).default;
+  const publishJob = await PublishJob.findOne({ videoId, status: { $in: ["queued", "processing"] } }).sort({ createdAt: 1 }).lean();
+  if (!publishJob) return null;
+  return {
+    id: publishJob._id.toString(),
+    status: publishJob.status,
+    platform: publishJob.platform,
+    error: publishJob.error,
   };
 }

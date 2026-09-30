@@ -1,7 +1,11 @@
 import { isValidObjectId } from "mongoose";
 import { z } from "zod";
 import { JOB_TYPES, type JobStatus, type JobType } from "@/constants/jobs";
+import { SOCIAL_PLATFORMS } from "@/constants/statuses";
 import Job from "@/models/Job";
+import PublishJob from "@/models/PublishJob";
+import SocialAccount from "@/models/SocialAccount";
+import Video from "@/models/Video";
 import { connectDB } from "@/lib/db/mongoose";
 import type { Job as JobRecord } from "@/types/job";
 
@@ -14,6 +18,13 @@ const renderVideoPayloadSchema = z.object({
 const generateContentPayloadSchema = z.object({
   campaignId: z.string().refine(isValidObjectId, "campaignId must be a valid MongoDB ID."),
   videoIndex: z.number().int().positive(),
+});
+
+const publishVideoPayloadSchema = z.object({
+  videoId: z.string().refine(isValidObjectId, "videoId must be a valid MongoDB ID."),
+  socialAccountId: z.string().refine(isValidObjectId, "socialAccountId must be a valid MongoDB ID."),
+  publishJobId: z.string().optional(),
+  platform: z.enum(SOCIAL_PLATFORMS).optional(),
 });
 
 export type PublicJob = Pick<
@@ -40,6 +51,7 @@ function publicJob(job: JobRecord | null): PublicJob | null {
 export function parseJobPayload(type: JobType, payload: Record<string, unknown>) {
   if (type === "RENDER_VIDEO") return renderVideoPayloadSchema.parse(payload);
   if (type === "GENERATE_CONTENT") return generateContentPayloadSchema.parse(payload);
+  if (type === "PUBLISH_VIDEO") return publishVideoPayloadSchema.parse(payload);
   throw new Error(`Unsupported job type: ${type}`);
 }
 
@@ -81,6 +93,61 @@ export async function enqueueRenderJob(videoId: string) {
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === 11000) {
       const activeJob = await getActiveRenderJob(videoId);
+      if (activeJob) return { job: activeJob, created: false };
+    }
+    throw error;
+  }
+}
+
+export async function getActivePublishJob(videoId: string, socialAccountId: string) {
+  await connectDB();
+  return publicJob(
+    await Job.findOne({ dedupeKey: `PUBLISH_VIDEO:${videoId}:${socialAccountId}`, status: { $in: ["queued", "processing"] } }).lean() as JobRecord | null,
+  );
+}
+
+export async function enqueuePublishJob(videoId: string, socialAccountId: string) {
+  const dedupeKey = `PUBLISH_VIDEO:${videoId}:${socialAccountId}`;
+  const existing = await getActivePublishJob(videoId, socialAccountId);
+  if (existing) return { job: existing, created: false };
+
+  try {
+    const [video, account] = await Promise.all([
+      Video.findById(videoId).lean(),
+      SocialAccount.findById(socialAccountId).lean(),
+    ]);
+
+    if (!video) throw new Error("Video not found.");
+    if (!account) throw new Error("Social account not found.");
+    if (video.status !== "approved") throw new Error("Video must be approved before it can be published.");
+    if (account.status !== "connected") throw new Error("This social account is not connected.");
+
+    const publishRecord = await PublishJob.findOneAndUpdate(
+      { videoId, socialAccountId },
+      { $setOnInsert: { videoId, socialAccountId, platform: account.platform, status: "queued" } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    ).lean();
+
+    const job = await createJob({
+      type: "PUBLISH_VIDEO",
+      payload: {
+        videoId,
+        socialAccountId,
+        publishJobId: publishRecord?._id?.toString(),
+        platform: account.platform,
+      },
+      dedupeKey,
+    });
+
+    await PublishJob.findByIdAndUpdate(publishRecord?._id, {
+      $set: { platform: account.platform, status: "queued", error: undefined },
+      $unset: { externalPostId: "" },
+    });
+
+    return { job: publicJob(job.toObject() as JobRecord), created: true };
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === 11000) {
+      const activeJob = await getActivePublishJob(videoId, socialAccountId);
       if (activeJob) return { job: activeJob, created: false };
     }
     throw error;

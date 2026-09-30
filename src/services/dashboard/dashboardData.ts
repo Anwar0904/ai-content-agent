@@ -54,9 +54,12 @@ export interface SocialAccountRow {
   id: string;
   platform: "facebook" | "instagram";
   accountName: string;
+  accountId: string;
   status: string;
   username?: string;
   profileUrl?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface PublishJobRow {
@@ -184,16 +187,19 @@ export function getSocialAccountRows(): Promise<SocialAccountRow[] | null> {
     const accounts = await SocialAccount.find()
       .sort({ createdAt: -1 })
       .limit(50)
-      .select("platform accountName status username profileUrl")
+      .select("platform accountName accountId status username profileUrl createdAt updatedAt")
       .lean();
 
     return accounts.map((account) => ({
       id: account._id.toString(),
       platform: account.platform,
       accountName: account.accountName,
+      accountId: account.accountId,
       status: account.status,
       username: account.username,
       profileUrl: account.profileUrl,
+      createdAt: account.createdAt,
+      updatedAt: account.updatedAt,
     }));
   });
 }

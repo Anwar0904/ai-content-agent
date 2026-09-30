@@ -4,6 +4,7 @@ import { getServerEnv } from "@/lib/env";
 import { claimJob, markCompleted, markFailed, parseJobPayload, recoverStaleJobs } from "@/services/jobs/jobService";
 import { finalizeCampaignGeneration } from "@/services/jobs/jobService";
 import { generateContentJob } from "./jobs/generateContent";
+import { publishVideoJob } from "./jobs/publishVideo";
 import { renderVideoJob } from "./jobs/renderVideo";
 
 dotenv.config({ path: ".env.local" });
@@ -33,13 +34,27 @@ async function processNextJob() {
   try {
     let result: Record<string, unknown>;
     if (job.type === "GENERATE_CONTENT") {
-      const payload = parseJobPayload(job.type, job.payload);
-      if (!("campaignId" in payload)) throw new Error("Invalid content generation payload.");
+      const payload = parseJobPayload(job.type, job.payload) as { campaignId: string; videoIndex: number };
+      if (!payload.campaignId) throw new Error("Invalid content generation payload.");
       result = await generateContentJob(payload.campaignId, payload.videoIndex);
     } else if (job.type === "RENDER_VIDEO") {
-      const payload = parseJobPayload(job.type, job.payload);
-      if (!("videoId" in payload)) throw new Error("Invalid render payload.");
+      const payload = parseJobPayload(job.type, job.payload) as { videoId: string };
+      if (!payload.videoId) throw new Error("Invalid render payload.");
       result = await renderVideoJob(payload.videoId);
+    } else if (job.type === "PUBLISH_VIDEO") {
+      const payload = parseJobPayload(job.type, job.payload) as {
+        videoId: string;
+        socialAccountId: string;
+        publishJobId?: string;
+        platform?: string;
+      };
+      if (!payload.videoId || !payload.socialAccountId) throw new Error("Invalid publish payload.");
+      result = await publishVideoJob({
+        videoId: payload.videoId,
+        socialAccountId: payload.socialAccountId,
+        publishJobId: payload.publishJobId,
+        platform: payload.platform,
+      });
     } else {
       throw new Error(`Unsupported job type: ${job.type}`);
     }

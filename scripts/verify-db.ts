@@ -59,6 +59,7 @@ async function verifyDatabase(): Promise<void> {
     const publishJob = await PublishJob.create({
       videoId,
       socialAccountId,
+      platform: "facebook",
     });
     publishJobId = publishJob._id;
     console.info(
