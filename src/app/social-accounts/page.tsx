@@ -1,5 +1,4 @@
 import { Share2 } from "lucide-react";
-import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { SocialAccountsManager } from "@/components/social/SocialAccountsManager";
@@ -18,12 +17,6 @@ export default async function SocialAccountsPage() {
       />
       {accounts === null ? (
         <ErrorState description="Social accounts couldn't be loaded. Check the database connection and try again." />
-      ) : accounts.length === 0 ? (
-        <EmptyState
-          description="Connect a local Facebook or Instagram account shell to make it available as a publishing destination."
-          icon={Share2}
-          title="No social accounts connected"
-        />
       ) : null}
       {accounts !== null && <SocialAccountsManager accounts={accounts} />}
       {accounts?.length === 0 && (
