@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { RenderError } from "@/services/video/renderError";
 import { connectDB, disconnectDB } from "@/lib/db/mongoose";
 import { getServerEnv } from "@/lib/env";
 import { claimJob, markCompleted, markFailed, parseJobPayload, recoverStaleJobs } from "@/services/jobs/jobService";
@@ -19,6 +20,7 @@ function delay(duration: number) {
 }
 
 function safeError(error: unknown, jobType: string) {
+  if (jobType === "RENDER_VIDEO" && error instanceof RenderError) return error.message;
   if (jobType === "PUBLISH_VIDEO" && error instanceof Error) return error.message;
   if (error instanceof Error && error.message === "Video not found.") return error.message;
   if (error instanceof Error && error.message.includes("no scenes")) return "This video has no scenes to render.";
@@ -65,7 +67,7 @@ async function processNextJob() {
     }
     console.info("Job completed", { jobId: job._id.toString(), type: job.type });
   } catch (error) {
-    console.error("Job failed", { jobId: job._id.toString(), type: job.type, error });
+    console.error("Job failed", { jobId: job._id.toString(), type: job.type, error: job.type === "RENDER_VIDEO" ? safeError(error, job.type) : error });
     await markFailed(job._id.toString(), safeError(error, job.type));
     if (job.type === "GENERATE_CONTENT" && typeof job.payload.campaignId === "string") {
       await finalizeCampaignGeneration(job.payload.campaignId);

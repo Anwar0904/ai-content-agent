@@ -1,72 +1,24 @@
-import { Clapperboard } from "lucide-react";
-import { EmptyState } from "@/components/shared/EmptyState";
+import Link from "next/link";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { StatusBadge } from "@/components/shared/StatusBadge";
-import { formatDate } from "@/lib/formatDate";
+import { VideosWorkspace } from "@/components/videos/VideosWorkspace";
 import { getVideoRows } from "@/services/dashboard/dashboardData";
-import { VideoSceneActions } from "@/components/videos/VideoSceneActions";
-import Link from "next/link";
+import { getPublishingWorkspace } from "@/services/publishing/workspaceData";
 
 export const dynamic = "force-dynamic";
 
-export default async function VideosPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ generated?: string }>;
-}) {
-  const videos = await getVideoRows();
-  const { generated } = await searchParams;
+export default async function VideosPage({ searchParams }: { searchParams: Promise<{ generated?: string }> }) {
+  const [videos, publishing, { generated }] = await Promise.all([getVideoRows(), getPublishingWorkspace(), searchParams]);
   const generatedCount = Number(generated ?? 0);
-
-  return (
-    <>
-      <PageHeader
-        description="Review video drafts and follow their progress through the content workflow."
-        title="Videos"
-      />
-      {generatedCount > 0 && (
-        <div className="success-alert" role="status">
-          {generatedCount} videos generated successfully.
-        </div>
-      )}
-      {videos === null ? (
-        <ErrorState description="Videos couldn't be loaded. Check the database connection and try again." />
-      ) : videos.length === 0 ? (
-        <EmptyState
-          action={{ href: "/campaigns/new", label: "Create campaign" }}
-          description="Create a campaign to start generating your first videos."
-          icon={Clapperboard}
-          title="No videos yet"
-        />
-      ) : (
-        <div className="data-table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Video</th>
-                <th scope="col">Campaign</th>
-                <th scope="col">Template</th>
-                <th scope="col">Status</th>
-                <th scope="col">Created</th>
-                <th scope="col">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {videos.map((video) => (
-                <tr key={video.id}>
-                  <td><Link className="video-title-link" href={`/videos/${video.id}`}>{video.title}</Link></td>
-                  <td>{video.campaign}</td>
-                  <td>{video.templateLabel ?? "Big Hook"}</td>
-                  <td><StatusBadge status={video.status} /></td>
-                  <td>{formatDate(video.createdAt)}</td>
-                  <td><VideoSceneActions videoId={video.id} scenes={video.scenes} videoPath={video.videoPath} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
-  );
+  return <>
+    <PageHeader title="Videos" description="Manage video review, approval and publishing." action={<Link className="primary-link" href="/campaigns/new">Create campaign</Link>} />
+    {generatedCount > 0 && <div className="success-alert" role="status">{generatedCount} videos generated successfully.</div>}
+    {videos === null ? <ErrorState description="Videos could not be loaded. Check the database connection and try again." /> : <VideosWorkspace publishing={publishing ? { accounts: publishing.accounts, rows: publishing.rows } : null} videos={videos.map((video) => ({
+      id: video.id, title: video.title, campaign: video.campaign, status: video.status,
+      updatedAt: (video.updatedAt ?? video.createdAt).toISOString(),
+      duration: video.scenes.reduce((sum, scene) => sum + scene.duration, 0),
+      thumbnail: [...video.scenes].sort((a, b) => a.order - b.order).find((scene) => scene.assetPath)?.assetPath,
+      rendered: !!video.videoPath,
+    }))} />}
+  </>;
 }

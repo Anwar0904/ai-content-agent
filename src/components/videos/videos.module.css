@@ -1,0 +1,30 @@
+.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 22px; }
+.summary > div { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; }
+.summary span { display: block; color: var(--muted-foreground); font-size: 12px; }
+.summary strong { display: block; font-size: 27px; font-weight: 600; margin-top: 6px; }
+.toolbar { display: flex; gap: 14px; align-items: end; margin-bottom: 16px; }
+.toolbar label, .field { display: grid; gap: 7px; font-size: 12px; }
+.toolbar input, .toolbar select, .field select { background: var(--card); border: 1px solid var(--input); padding: 10px 12px; border-radius: 8px; color: var(--foreground); }
+.toolbar input { width: min(340px, 50vw); }
+.titleCell { display: flex; align-items: center; gap: 13px; min-width: 250px; max-width: 390px; }
+.thumbnail, .placeholder { width: 72px; height: 72px; flex-shrink: 0; border-radius: 8px; object-fit: cover; background: var(--muted); }
+.placeholder { display: grid; place-items: center; font-size: 11px; color: var(--muted-foreground); }
+.table small { display: block; font-size: 11px; color: var(--muted-foreground); margin-top: 5px; }
+.table td { padding-top: 12px; padding-bottom: 12px; }
+.rowActions, .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rowActions { min-width: 180px; }
+.publishAction { display: grid; gap: 6px; }
+.publishAction > p { max-width: 280px; }
+.empty { text-align: center; padding: 48px 20px; border: 1px dashed var(--border); border-radius: 12px; }
+.empty p { margin: 12px 0 20px; }
+.dialog { margin: auto; width: min(510px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: 16px; padding: 26px; white-space: normal; }
+.dialog::backdrop { background: #17231a66; }
+.dialog h2 { font-size: 21px; font-weight: 600; }
+.dialog p { margin: 14px 0; font-size: 13px; line-height: 1.7; }
+.dialog a { color: var(--primary); text-decoration: underline; }
+.dialog .actions { justify-content: flex-end; margin-top: 22px; }
+.dialog button:disabled { opacity: .5; cursor: not-allowed; }
+.field { margin: 20px 0; }
+.field select { width: 100%; }
+.notice { padding: 12px; background: var(--accent); color: var(--primary); border-radius: 8px; }
+@media (max-width: 640px) { .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .toolbar { flex-wrap: wrap; } .summary > div { padding: 13px; } }

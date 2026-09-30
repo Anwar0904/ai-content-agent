@@ -8,6 +8,8 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { SceneAssetPreview } from "@/components/videos/SceneAssetPreview";
 import { VideoDetailActions } from "@/components/videos/VideoDetailActions";
 import { getVideoDetail } from "@/services/video/videoDetails";
+import { getPublishingWorkspace } from "@/services/publishing/workspaceData";
+import { VideoSceneActions } from "@/components/videos/VideoSceneActions";
 import { formatDate } from "@/lib/formatDate";
 
 export const dynamic = "force-dynamic";
@@ -25,11 +27,19 @@ export default async function VideoDetailPage({
     return <ErrorState title="Video unavailable" description="This video couldn't be loaded. Check the database connection and try again." />;
   }
   if (!video) notFound();
+  const publishing = await getPublishingWorkspace();
 
   return (
     <>
       <Link className="back-link" href="/videos"><ArrowLeft aria-hidden="true" size={15} /> Back to Videos</Link>
       <PageHeader description="Inspect the generated content, scenes, and final render." title={video.title} />
+
+      <section aria-label="Video actions" className="video-detail-actions-section">
+        <StatusBadge status={video.status} />
+        <VideoDetailActions canRender={!video.videoPath && video.scenes.length > 0 && ["draft", "review", "approved", "failed", "rendering"].includes(video.status)} initialJob={video.renderJob} status={video.status} videoId={video.id} title={video.title} rendered={!!video.videoPath} publishing={publishing ? { accounts: publishing.accounts, rows: publishing.rows.filter((row) => row.videoId === video.id) } : null} />
+        <a className="secondary-link" href="#scenes-heading">View scenes</a>
+        {video.status === "published" && <Link className="secondary-link" href="/publishing">View publication</Link>}
+      </section>
 
       <section aria-label="Video preview and details" className="video-detail-overview">
         <div className="video-detail-player">
@@ -39,7 +49,7 @@ export default async function VideoDetailPage({
             <div className="video-not-rendered">
               <h2>Video not rendered yet</h2>
               <p>Render this video to generate the final MP4.</p>
-              <VideoDetailActions canRender={video.scenes.length > 0} initialJob={video.renderJob} status={video.status} videoId={video.id} />
+
             </div>
           )}
         </div>
@@ -108,15 +118,7 @@ export default async function VideoDetailPage({
         )}
       </section>
 
-      <section aria-label="Video actions" className="video-detail-actions-section">
-        <VideoDetailActions status={video.status} videoId={video.id} />
-        <p className="section-caption">
-          {video.status === "review" && "Approve or reject this video before it can enter the publishing flow."}
-          {video.status === "approved" && "This video is approved and ready for future publishing."}
-          {video.status === "rejected" && "This video is rejected and excluded from the publishing flow."}
-          {!['review', 'approved', 'rejected'].includes(video.status) && "Review status will appear here once the video reaches the approval stage."}
-        </p>
-      </section>
+      {video.scenes.length === 0 && video.status === "draft" && <VideoSceneActions videoId={video.id} scenes={[]} />}
     </>
   );
 }

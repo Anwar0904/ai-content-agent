@@ -2,10 +2,11 @@ import { copyFile, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { dirname, extname, join } from "node:path";
 import { tmpdir } from "node:os";
+import { RenderError } from "./renderError";
 import Video from "@/models/Video";
 import { connectDB } from "@/lib/db/mongoose";
 import { generateSpeech } from "@/services/ai/tts/ttsGenerator";
-import { probeMedia, runFfmpeg } from "@/services/video/ffmpeg";
+import { probeMedia, runFfmpeg, runFfprobe } from "@/services/video/ffmpeg";
 import { buildAssSubtitles } from "@/services/video/subtitleGenerator";
 import { calculateSceneTimings } from "@/services/video/timing";
 import { ensureDirectory, finalVideoPath, validateFinalVideo, validateSceneImage } from "@/services/video/mediaValidation";
@@ -43,22 +44,36 @@ async function getCachedAudio(videoId: string, sceneOrder: number, narration: st
 }
 
 export async function renderVideo(videoId: string): Promise<RenderedVideo> {
+  let stage = "loading video";
+  let workspace: string | undefined;
+  try {
   await connectDB();
   const video = await Video.findById(videoId).lean();
   if (!video) throw new Error("Video not found.");
   if (!video.scenes.length) throw new Error("Video has no scenes to render.");
   if (video.scenes.some((scene) => !scene.narration.trim() || !scene.assetPath)) throw new Error("Every scene needs narration and an image asset.");
 
+  stage = "validating scenes and template";
+  if (new Set(video.scenes.map((scene) => scene.order)).size !== video.scenes.length || video.scenes.some((scene) => !Number.isInteger(scene.order) || scene.order < 0)) throw new Error("Scene orders must be unique non-negative integers.");
   const templateId = validateVideoTemplate(video);
   const orderedScenes = [...video.scenes].sort((left, right) => left.order - right.order);
 
-  const workspace = await mkdtemp(join(tmpdir(), "ai-content-agent-render-"));
-  try {
+  stage = "checking FFmpeg and FFprobe";
+  await runFfmpeg(["-version"]);
+  await runFfprobe(["-version"]);
+  const sourceImages: string[] = [];
+  for (const scene of orderedScenes) {
+    stage = `validating image for scene ${scene.order}`;
+    sourceImages.push(await validateSceneImage(scene.assetPath!));
+  }
+  stage = "creating temporary workspace";
+  workspace = await mkdtemp(join(tmpdir(), "ai-content-agent-render-"));
     const audioDurations: Array<{ order: number; duration: number }> = [];
     const sceneFiles: string[] = [];
     for (let index = 0; index < orderedScenes.length; index += 1) {
       const scene = orderedScenes[index];
-      const sourceImage = await validateSceneImage(scene.assetPath!);
+      stage = `preparing media for scene ${scene.order}`;
+      const sourceImage = sourceImages[index];
       const imagePath = join(workspace, `scene-${String(scene.order).padStart(2, "0")}${extname(sourceImage).toLowerCase()}`);
       await copyFile(sourceImage, imagePath);
       const cachedAudio = await getCachedAudio(videoId, scene.order, scene.narration);
@@ -68,7 +83,9 @@ export async function renderVideo(videoId: string): Promise<RenderedVideo> {
         await copyFile(cachedAudio.path, audioPath);
         audioDuration = cachedAudio.duration;
       } else {
+        stage = `generating voiceover for scene ${scene.order}`;
         const speech = await generateSpeech({ text: scene.narration });
+        stage = `saving voiceover for scene ${scene.order}`;
         const cachePath = audioCachePath(videoId, scene.order, scene.narration);
         await ensureDirectory(dirname(cachePath));
         const temporaryCachePath = `${cachePath}.tmp-${process.pid}`;
@@ -81,6 +98,7 @@ export async function renderVideo(videoId: string): Promise<RenderedVideo> {
       sceneFiles.push(`${imagePath}\t${audioPath}`);
     }
 
+    stage = "building subtitle timings";
     const timings = calculateSceneTimings(audioDurations);
     const subtitlesPath = join(workspace, "subtitles.ass");
     await writeFile(subtitlesPath, buildAssSubtitles(orderedScenes, timings), "utf8");
@@ -89,6 +107,7 @@ export async function renderVideo(videoId: string): Promise<RenderedVideo> {
     for (let index = 0; index < sceneFiles.length; index += 1) {
       const [imagePath, audioPath] = sceneFiles[index].split("\t");
       const scene = orderedScenes[index];
+      stage = `encoding scene ${scene.order}`;
       const templateFilter = buildTemplateSceneFilter({
         templateId,
         video: { hook: video.hook, title: video.title },
@@ -108,24 +127,38 @@ export async function renderVideo(videoId: string): Promise<RenderedVideo> {
       segmentPaths.push(segmentPath);
     }
 
+    stage = "joining encoded scenes";
     const concatList = join(workspace, "concat.txt");
     await writeFile(concatList, `${segmentPaths.map(concatLine).join("\n")}\n`, "utf8");
     const concatenatedPath = join(workspace, "concatenated.mp4");
     await runFfmpeg(["-y", "-f", "concat", "-safe", "0", "-i", concatList, "-c", "copy", concatenatedPath]);
 
+    stage = "burning subtitles";
     const temporaryFinalPath = join(workspace, "temporary-final.mp4");
     await runFfmpeg([
       "-y", "-i", concatenatedPath, "-vf", `subtitles=${subtitlesPath}`,
       "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-pix_fmt", "yuv420p", "-c:a", "copy", "-movflags", "+faststart", temporaryFinalPath,
     ]);
+    stage = "validating final MP4";
     const probe = await validateFinalVideo(temporaryFinalPath);
 
+    stage = "saving final MP4";
     const output = finalVideoPath(video.campaignId.toString(), videoId);
     await ensureDirectory(dirname(output.filesystemPath));
-    await rename(temporaryFinalPath, output.filesystemPath);
+    // Copy to the destination filesystem before an atomic rename.
+    const destinationTemp = `${output.filesystemPath}.tmp-${process.pid}`;
+    try {
+      await copyFile(temporaryFinalPath, destinationTemp);
+      await rename(destinationTemp, output.filesystemPath);
+    } finally {
+      await rm(destinationTemp, { force: true });
+    }
+    stage = "persisting video path";
     await Video.findByIdAndUpdate(videoId, { $set: { videoPath: output.browserPath } });
     return { videoPath: output.browserPath, duration: probe.duration };
+  } catch (error) {
+    throw new RenderError(stage, error);
   } finally {
-    await rm(workspace, { recursive: true, force: true });
+    if (workspace) await rm(workspace, { recursive: true, force: true }).catch(() => undefined);
   }
 }

@@ -2,7 +2,9 @@
 
 import { LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { VideoPublishAction, type VideoPublishingData } from "./VideoPublishAction";
 
 type ReviewAction = "approve" | "reject";
 type JobStatus = "queued" | "processing" | "completed" | "failed";
@@ -12,8 +14,14 @@ export function VideoDetailActions({
   canRender = false,
   status = "draft",
   initialJob,
+  title = "Video",
+  rendered = false,
+  publishing = null,
 }: {
   videoId: string;
+  title?: string;
+  rendered?: boolean;
+  publishing?: VideoPublishingData | null;
   canRender?: boolean;
   status?: string;
   initialJob?: { id: string; status: JobStatus; error?: string } | null;
@@ -21,16 +29,13 @@ export function VideoDetailActions({
   const router = useRouter();
   const [jobId, setJobId] = useState(initialJob?.id ?? null);
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(initialJob?.status ?? null);
-  const [publishStatus, setPublishStatus] = useState<JobStatus | null>(null);
-  const [publishError, setPublishError] = useState("");
-  const [publishAccountId, setPublishAccountId] = useState<string>("");
   const [isReviewing, setIsReviewing] = useState(false);
   const [pendingAction, setPendingAction] = useState<ReviewAction | null>(null);
   const [error, setError] = useState("");
 
   const isInReview = status === "review";
-  const isApproved = status === "approved";
-  const isRejected = status === "rejected";
+  const actionLock = useRef(false);
+  const [renderSubmitting, setRenderSubmitting] = useState(false);
   const isRendering = jobStatus === "queued" || jobStatus === "processing";
 
   useEffect(() => {
@@ -64,7 +69,9 @@ export function VideoDetailActions({
   }, [jobId, jobStatus, router]);
 
   async function renderVideo() {
-    if (isRendering) return;
+    if (actionLock.current || isRendering) return;
+    actionLock.current = true;
+    setRenderSubmitting(true);
     setJobStatus(null);
     setError("");
     try {
@@ -82,44 +89,11 @@ export function VideoDetailActions({
       setJobStatus(result.data.job.status);
     } catch {
       setError("Video rendering failed. Please try again.");
-    }
-  }
-
-  async function publishVideo(platform: "facebook" | "instagram") {
-    if (!publishAccountId) {
-      setPublishError("Select a mock social account first.");
-      return;
-    }
-
-    setPublishStatus("queued");
-    setPublishError("");
-
-    try {
-      const response = await fetch(`/api/videos/${videoId}/publish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ socialAccountId: publishAccountId }),
-      });
-      const result = (await response.json()) as { data?: { job?: { id: string; status: JobStatus } }; error?: { message?: string } };
-      if (!response.ok) {
-        setPublishError(result.error?.message || `Mock ${platform} publish failed.`);
-        setPublishStatus(null);
-        return;
-      }
-      if (!result.data?.job) {
-        setPublishError("Publishing job was not returned by the server.");
-        setPublishStatus(null);
-        return;
-      }
-      setPublishStatus(result.data.job.status);
-    } catch {
-      setPublishError(`Mock ${platform} publishing failed.`);
-      setPublishStatus(null);
-    }
+    } finally { actionLock.current = false; setRenderSubmitting(false); }
   }
 
   async function submitReview(action: ReviewAction) {
-    if (isReviewing || !isInReview) return;
+    if (actionLock.current || isReviewing || !isInReview) return;
 
     const confirmed = window.confirm(
       action === "approve"
@@ -129,6 +103,7 @@ export function VideoDetailActions({
 
     if (!confirmed) return;
 
+    actionLock.current = true;
     setIsReviewing(true);
     setPendingAction(action);
     setError("");
@@ -146,6 +121,7 @@ export function VideoDetailActions({
     } catch {
       setError(`Video ${action === "approve" ? "approval" : "rejection"} failed. Please try again.`);
     } finally {
+      actionLock.current = false;
       setIsReviewing(false);
       setPendingAction(null);
     }
@@ -154,25 +130,11 @@ export function VideoDetailActions({
   return (
     <div className="video-detail-action-controls">
       {canRender && (
-        <button className="primary-link" disabled={isRendering || isReviewing} onClick={renderVideo} type="button">
+        <button className="primary-link" disabled={renderSubmitting || isRendering || isReviewing} onClick={renderVideo} type="button">
           {jobStatus === "queued" ? <><LoaderCircle aria-hidden="true" className="button-spinner" size={14} /> Queued...</> : isRendering ? <><LoaderCircle aria-hidden="true" className="button-spinner" size={14} /> Rendering video...</> : "Render video"}
         </button>
       )}
-      {status === "approved" && (
-        <div className="publish-controls">
-          <select aria-label="Select mock publishing destination" defaultValue="" onChange={(event) => setPublishAccountId(event.target.value)} value={publishAccountId}>
-            <option value="">Select mock destination</option>
-            <option value="mock-facebook-page-1">Mock Facebook Page</option>
-            <option value="mock-instagram-account-1">Mock Instagram Account</option>
-          </select>
-          <button className="secondary-link" disabled={!publishAccountId || !!publishStatus} onClick={() => publishVideo(publishAccountId.startsWith("mock-facebook") ? "facebook" : "instagram")} type="button">
-            {publishStatus === "queued" ? <><LoaderCircle aria-hidden="true" className="button-spinner" size={14} /> Queued...</> : publishStatus === "processing" ? <><LoaderCircle aria-hidden="true" className="button-spinner" size={14} /> Publishing...</> : `Publish to ${publishAccountId.includes("facebook") ? "Facebook" : "Instagram"}`}
-          </button>
-          {publishError && <p className="form-error" role="alert">{publishError}</p>}
-        </div>
-      )}
-      <button className="secondary-link" disabled title="Video editing is not available yet." type="button">Edit</button>
-      <button className="secondary-link" disabled title="Video regeneration is not available yet." type="button">Regenerate</button>
+      {status === "approved" && <VideoPublishAction videoId={videoId} title={title} rendered={rendered} publishing={publishing} />}
 
       {isInReview ? (
         <>
@@ -183,16 +145,7 @@ export function VideoDetailActions({
             {isReviewing && pendingAction === "reject" ? <><LoaderCircle aria-hidden="true" className="button-spinner" size={14} /> Rejecting...</> : "Reject"}
           </button>
         </>
-      ) : isApproved ? (
-        <button className="secondary-link" disabled type="button">Approved</button>
-      ) : isRejected ? (
-        <button className="secondary-link" disabled type="button">Rejected</button>
-      ) : (
-        <>
-          <button className="secondary-link" disabled title={`This video is ${status}. Approval is available once it reaches REVIEW.`} type="button">Approve</button>
-          <button className="secondary-link" disabled title={`This video is ${status}. Rejection is available once it reaches REVIEW.`} type="button">Reject</button>
-        </>
-      )}
+      ) : null}
 
       {error && <p className="form-error" role="alert">{error}</p>}
     </div>

@@ -44,6 +44,7 @@ export interface VideoRow {
   campaign: string;
   status: string;
   createdAt: Date;
+  updatedAt?: Date;
   scenes: VideoScene[];
   videoPath?: string;
   templateId?: string;
@@ -155,7 +156,7 @@ export function getVideoRows(): Promise<VideoRow[] | null> {
     const videos = await Video.find()
       .sort({ createdAt: -1 })
       .limit(50)
-      .select("title campaignId status createdAt scenes videoPath templateId")
+      .select("title campaignId status createdAt updatedAt scenes videoPath templateId")
       .lean();
     const campaignIds = videos.map((video) => video.campaignId);
     const campaigns = campaignIds.length
@@ -171,6 +172,7 @@ export function getVideoRows(): Promise<VideoRow[] | null> {
       campaign: campaignTitles.get(video.campaignId.toString()) ?? "Campaign unavailable",
       status: video.status,
       createdAt: video.createdAt,
+      updatedAt: video.updatedAt,
       scenes: video.scenes.map((scene) => ({
         ...scene,
         assetPath: toPublicMediaUrl(scene.assetPath),
