@@ -25,7 +25,7 @@ export const SOCIAL_PLATFORMS = ["facebook", "instagram"] as const;
 
 export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
 
-export const SOCIAL_ACCOUNT_STATUSES = ["connected", "expired"] as const;
+export const SOCIAL_ACCOUNT_STATUSES = ["connected", "expired", "disconnected"] as const;
 
 export type SocialAccountStatus = (typeof SOCIAL_ACCOUNT_STATUSES)[number];
 

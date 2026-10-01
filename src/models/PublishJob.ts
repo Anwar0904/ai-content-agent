@@ -24,6 +24,7 @@ const PublishJobSchema = new Schema<PublishJobRecord>(
       required: true,
     },
     scheduledAt: { type: Date },
+    publishedAt: { type: Date },
     externalPostId: { type: String, trim: true },
     error: { type: String, trim: true },
   },

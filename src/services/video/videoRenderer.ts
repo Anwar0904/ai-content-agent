@@ -53,6 +53,8 @@ export async function renderVideo(videoId: string): Promise<RenderedVideo> {
   if (!video.scenes.length) throw new Error("Video has no scenes to render.");
   if (video.scenes.some((scene) => !scene.narration.trim() || !scene.assetPath)) throw new Error("Every scene needs narration and an image asset.");
 
+  await Video.findByIdAndUpdate(videoId, { $set: { status: "rendering" } });
+
   stage = "validating scenes and template";
   if (new Set(video.scenes.map((scene) => scene.order)).size !== video.scenes.length || video.scenes.some((scene) => !Number.isInteger(scene.order) || scene.order < 0)) throw new Error("Scene orders must be unique non-negative integers.");
   const templateId = validateVideoTemplate(video);
@@ -154,9 +156,10 @@ export async function renderVideo(videoId: string): Promise<RenderedVideo> {
       await rm(destinationTemp, { force: true });
     }
     stage = "persisting video path";
-    await Video.findByIdAndUpdate(videoId, { $set: { videoPath: output.browserPath } });
+    await Video.findByIdAndUpdate(videoId, { $set: { videoPath: output.browserPath, status: "review" } });
     return { videoPath: output.browserPath, duration: probe.duration };
   } catch (error) {
+    await Video.findByIdAndUpdate(videoId, { $set: { status: "failed" } }).catch(() => undefined);
     throw new RenderError(stage, error);
   } finally {
     if (workspace) await rm(workspace, { recursive: true, force: true }).catch(() => undefined);

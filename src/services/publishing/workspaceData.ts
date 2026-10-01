@@ -21,7 +21,7 @@ export interface PublishingRow {
 }
 export interface PublishingWorkspaceData {
   videos: { id: string; title: string; duration: number }[];
-  accounts: { id: string; name: string; platform: string; status: string }[];
+  accounts: { id: string; name: string; accountId: string; platform: string; status: string }[];
   rows: PublishingRow[];
 }
 
@@ -46,7 +46,10 @@ export async function getPublishingWorkspace(): Promise<PublishingWorkspaceData 
     ]);
     return {
       videos: eligible.map((video) => ({ id: video._id.toString(), title: video.title, duration: video.scenes.reduce((sum, scene) => sum + scene.duration, 0) })),
-      accounts: accounts.filter((account) => account.platform !== "facebook" || /^\d+$/.test(account.accountId)).map((account) => ({ id: account._id.toString(), name: account.accountName, platform: account.platform, status: account.status })),
+      accounts: accounts
+        .filter((account) => account.platform !== "facebook" || /^\d+$/.test(account.accountId))
+        .filter((account) => process.env.NODE_ENV !== "production" || (account.platform === "facebook" && !account.accountId.startsWith("mock")))
+        .map((account) => ({ id: account._id.toString(), name: account.accountName, accountId: account.accountId, platform: account.platform, status: account.status })),
       rows: records.map((record) => {
         const account = accounts.find((item) => item._id.equals(record.socialAccountId));
         const job = jobs.find((item) => item.payload.publishJobId === record._id.toString());

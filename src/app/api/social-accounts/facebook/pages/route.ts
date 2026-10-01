@@ -11,6 +11,8 @@ export async function GET() {
     const connected = new Set(accounts.map((account) => account.accountId));
     return NextResponse.json({ pages: pages.map((page) => ({ ...page, connected: connected.has(page.id) })) }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    return NextResponse.json({ error: { message: error instanceof FacebookConnectionError ? error.message : "Unable to load Facebook Pages." } }, { status: 503 });
+    const connectionError = error instanceof FacebookConnectionError ? error : null;
+    const status = connectionError?.code === "reauthorization_required" ? 401 : connectionError?.code === "permission_required" ? 403 : 503;
+    return NextResponse.json({ error: { code: connectionError?.code ?? "unavailable", message: connectionError?.message ?? "Facebook couldn't be reached. Try again." } }, { status });
   }
 }

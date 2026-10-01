@@ -18,7 +18,7 @@ export async function DELETE(
     await connectDB();
     const account = await SocialAccount.findByIdAndUpdate(
       accountId,
-      { $set: { status: "expired" } },
+      { $set: { status: "disconnected" }, $unset: { accessTokenEncrypted: "", expiresAt: "" } },
       { new: true, runValidators: true },
     ).select("platform accountName accountId status username profileUrl createdAt updatedAt").lean();
     if (!account) return errorResponse("Social account not found.", 404);

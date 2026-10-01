@@ -7,6 +7,7 @@ export interface PublishJob {
   platform: SocialPlatform;
   status: PublishJobStatus;
   scheduledAt?: Date;
+  publishedAt?: Date;
   externalPostId?: string;
   error?: string;
   createdAt: Date;

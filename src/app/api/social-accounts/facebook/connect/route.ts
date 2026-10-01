@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/mongoose";
+import { encryptToken } from "@/lib/security/tokenEncryption";
 import SocialAccount from "@/models/SocialAccount";
-import { discoverFacebookPages, FacebookConnectionError } from "../pagesService";
+import { findFacebookPage, FacebookConnectionError } from "../pagesService";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -9,16 +10,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { message: "Invalid Facebook Page ID." } }, { status: 400 });
   }
   try {
-    const page = (await discoverFacebookPages()).find((candidate) => candidate.id === body.pageId);
-    if (!page) return NextResponse.json({ error: { message: "This Facebook Page is not available to the configured account." } }, { status: 403 });
+    const page = await findFacebookPage(body.pageId);
+    if (!page) return NextResponse.json({ error: { message: "This Facebook Page is not available to the connected Facebook account." } }, { status: 403 });
     await connectDB();
     const account = await SocialAccount.findOneAndUpdate(
       { platform: "facebook", accountId: page.id },
-      { $set: { accountName: page.name, status: "connected" } },
+      { $set: { accountName: page.name, accessTokenEncrypted: encryptToken(page.accessToken), status: "connected" } },
       { upsert: true, new: true, setDefaultsOnInsert: true, runValidators: true },
-    ).select("accountId accountName status platform").lean();
-    return NextResponse.json({ account: { id: account._id.toString(), accountId: account.accountId, accountName: account.accountName, platform: account.platform, status: account.status } });
+    ).select("accountId accountName status platform createdAt updatedAt").lean();
+    return NextResponse.json({ account: { id: account._id.toString(), accountId: account.accountId, accountName: account.accountName, platform: account.platform, status: account.status, createdAt: account.createdAt, updatedAt: account.updatedAt } });
   } catch (error) {
-    return NextResponse.json({ error: { message: error instanceof FacebookConnectionError ? error.message : "Unable to connect Facebook Page." } }, { status: 503 });
+    const connectionError = error instanceof FacebookConnectionError ? error : null;
+    const status = connectionError?.code === "reauthorization_required" ? 401 : connectionError?.code === "permission_required" ? 403 : 503;
+    return NextResponse.json({ error: { code: connectionError?.code ?? "unavailable", message: connectionError?.message ?? "We couldn't add this Facebook Page. Try again." } }, { status });
   }
 }

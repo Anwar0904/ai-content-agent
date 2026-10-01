@@ -44,6 +44,7 @@ export async function publishVideoJob(jobPayload: { videoId: string; socialAccou
     PublishJob.findByIdAndUpdate(jobPayload.publishJobId ?? publishRecord?._id, {
       $set: {
         status: "published",
+        publishedAt: result.publishedAt,
         externalPostId: result.externalPostId,
         error: undefined,
       },

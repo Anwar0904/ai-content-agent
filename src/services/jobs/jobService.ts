@@ -141,7 +141,7 @@ export async function enqueuePublishJob(videoId: string, socialAccountId: string
 
     await PublishJob.findByIdAndUpdate(publishRecord?._id, {
       $set: { platform: account.platform, status: "queued", error: undefined },
-      $unset: { externalPostId: "" },
+      $unset: { externalPostId: "", publishedAt: "" },
     });
 
     return { job: publicJob(job.toObject() as JobRecord), created: true };

@@ -26,12 +26,33 @@ export function PublishingWorkspace({ data }: { data: PublishingWorkspaceData | 
   const [platform, setPlatform] = useState("all");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [facebookCheck, setFacebookCheck] = useState<{ accountIds: string; pageIds: string[]; error: string } | null>(null);
   const [selectedRow, setSelectedRow] = useState<string | null>(null);
   const [added, setAdded] = useState<PublishingRow[]>([]);
   const [updates, setUpdates] = useState<Record<string, Partial<PublishingRow>>>({});
   const rows = [...added.filter((row) => !data?.rows.some((stored) => stored.jobId === row.jobId)), ...(data?.rows ?? [])]
     .map((row) => ({ ...row, ...(row.jobId ? updates[row.jobId] : {}) }));
   const pollingIds = rows.filter((row) => row.jobId && active(row.status)).map((row) => row.jobId!).sort().join(",");
+  const connectedFacebookIds = data?.accounts.filter((account) => account.platform === "facebook" && account.status === "connected" && /^\d+$/.test(account.accountId)).map((account) => account.accountId).join(",") ?? "";
+  const currentFacebookCheck = facebookCheck?.accountIds === connectedFacebookIds ? facebookCheck : null;
+  const facebookPageIds = currentFacebookCheck?.pageIds ?? null;
+  const facebookCheckError = currentFacebookCheck?.error ?? "";
+
+  useEffect(() => {
+    if (!connectedFacebookIds) return;
+    let cancelled = false;
+    void fetch("/api/social-accounts/facebook/pages", { cache: "no-store" })
+      .then(async (response) => {
+        const body = await response.json() as { pages?: { id: string; connected: boolean }[]; error?: { message?: string } };
+        if (!response.ok) throw new Error(body.error?.message || "Facebook access couldn't be checked.");
+        if (!cancelled) setFacebookCheck({ accountIds: connectedFacebookIds, pageIds: (body.pages ?? []).filter((page) => page.connected).map((page) => page.id), error: "" });
+      })
+      .catch((cause: unknown) => {
+        if (cancelled) return;
+        setFacebookCheck({ accountIds: connectedFacebookIds, pageIds: [], error: cause instanceof Error ? cause.message : "Facebook access couldn't be checked." });
+      });
+    return () => { cancelled = true; };
+  }, [connectedFacebookIds]);
 
   useEffect(() => {
     if (!pollingIds) return;
@@ -58,7 +79,7 @@ export function PublishingWorkspace({ data }: { data: PublishingWorkspaceData | 
     return () => { cancelled = true; clearTimeout(timer); };
   }, [pollingIds, router]);
 
-  const accounts = data?.accounts.filter((account) => account.status === "connected") ?? [];
+  const accounts = data?.accounts.filter((account) => account.status === "connected" && (account.platform !== "facebook" || facebookPageIds?.includes(account.accountId))) ?? [];
   const video = data?.videos.find((item) => item.id === videoId);
   const account = accounts.find((item) => item.id === accountId);
   const matching = rows.filter((row) => row.videoId === videoId && row.accountId === accountId);
@@ -106,6 +127,8 @@ export function PublishingWorkspace({ data }: { data: PublishingWorkspaceData | 
     <>
       <PageHeader title="Publishing" description="Publish approved videos to your connected social accounts and monitor delivery status." action={<button className="primary-link" onClick={openPublish}><Plus size={16} aria-hidden="true" /> Publish video</button>} />
       {!data && <p className="form-alert" role="alert">Publishing data could not be loaded. Check the database connection and refresh status.</p>}
+      {facebookCheckError && <p className="form-alert" role="alert">Facebook publishing destinations are disabled. {facebookCheckError} A workspace administrator must restore Meta access.</p>}
+      {connectedFacebookIds && !currentFacebookCheck && <p className="social-account-copy" role="status">Checking Facebook publishing access…</p>}
       {message && <p className={styles.notice} role="status">{message}</p>}
       {error && <p className="form-alert" role="alert">{error}</p>}
       <section className={styles.summary} aria-label="Publishing summary">
@@ -114,7 +137,12 @@ export function PublishingWorkspace({ data }: { data: PublishingWorkspaceData | 
       <section className={styles.destinations} aria-label="Connected destinations">
         <div className={styles.toolbar}><h2>Connected destinations</h2><Link href="/social-accounts">Manage social accounts</Link></div>
         <div className={styles.accounts}>
-          {data?.accounts.map((item) => <div className={styles.account} key={item.id}>{item.platform === "facebook" ? <Globe2 size={17} aria-hidden="true" /> : <Camera size={17} aria-hidden="true" />}<div><strong>{platformLabel(item.platform)} · {item.name}</strong><small>{item.platform === "instagram" ? "Mock connection" : "Real connection"}</small></div><StatusBadge status={item.status === "connected" ? "connected" : "not connected"} /></div>)}
+          {data?.accounts.map((item) => {
+            const facebookAvailable = item.platform !== "facebook" || facebookPageIds?.includes(item.accountId) === true;
+            const status = item.status !== "connected" ? "not connected" : item.platform === "facebook" && !currentFacebookCheck ? "processing" : facebookAvailable ? "connected" : "failed";
+            const health = item.platform === "instagram" ? "Test destination" : item.status !== "connected" ? "Disconnected" : !currentFacebookCheck ? "Checking access" : facebookAvailable ? "Publishing access active" : facebookCheckError ? "Access check failed" : "Page unavailable";
+            return <div className={styles.account} key={item.id}>{item.platform === "facebook" ? <Globe2 size={17} aria-hidden="true" /> : <Camera size={17} aria-hidden="true" />}<div><strong>{platformLabel(item.platform)} · {item.name}</strong><small>{health}</small></div><StatusBadge status={status} /></div>;
+          })}
           {data && !accounts.length && <p>No publishing destinations are connected. <Link href="/social-accounts">Manage social accounts</Link></p>}
         </div>
       </section>
@@ -132,7 +160,7 @@ export function PublishingWorkspace({ data }: { data: PublishingWorkspaceData | 
         <h2 id="publish-title">Publish video</h2><p>Choose one approved video and one destination.</p>
         {!data ? <p role="alert">Publishing data is unavailable. Close this dialog and refresh status.</p> : <>
           {!data.videos.length ? <p>No approved videos are ready to publish. Approve a rendered video before publishing. <Link href="/videos">Browse videos</Link></p> : <label className={styles.field}>Video<select value={videoId} disabled={busy} onChange={(event) => setVideoId(event.target.value)}>{data.videos.map((item) => <option key={item.id} value={item.id}>{item.title} · Approved{item.duration ? ` · ${Math.round(item.duration)}s` : ""}</option>)}</select></label>}
-          {!accounts.length ? <p>No publishing destinations are connected. <Link href="/social-accounts">Manage social accounts</Link></p> : <label className={styles.field}>Destination<select value={accountId} disabled={busy} onChange={(event) => setAccountId(event.target.value)}>{accounts.map((item) => <option key={item.id} value={item.id}>{platformLabel(item.platform)} · {item.name} · Connected{item.platform === "instagram" ? " (Mock)" : ""}</option>)}</select></label>}
+          {!accounts.length ? <p>{connectedFacebookIds && !currentFacebookCheck ? "Checking Facebook access before showing destinations… " : "No publishing destinations are currently available. "}<Link href="/social-accounts">Manage social accounts</Link></p> : <label className={styles.field}>Destination<select value={accountId} disabled={busy} onChange={(event) => setAccountId(event.target.value)}>{accounts.map((item) => <option key={item.id} value={item.id}>{platformLabel(item.platform)} · {item.name} · Connected{item.platform === "instagram" ? " (Test)" : ""}</option>)}</select></label>}
           {video && account && <div className={styles.review}><small>REVIEW PUBLICATION</small><strong>{video.title}</strong><p>→ {platformLabel(account.platform)} · {account.name}</p><p>{account.platform === "facebook" ? "This is a real Facebook publication." : "Instagram uses the current mock publishing flow."}</p></div>}
         </>}
         {duplicate && <p role="status">{duplicate}</p>}{error && <p className="form-alert" role="alert">{error}</p>}{uncertain && <p>Submission is disabled until you reload and check the existing job history.</p>}

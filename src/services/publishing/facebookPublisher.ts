@@ -1,14 +1,8 @@
 import { readFile, stat } from "node:fs/promises";
 import { getServerEnv } from "@/lib/env";
+import { getFacebookPageAccessToken } from "@/app/api/social-accounts/facebook/pagesService";
 import { resolveStoredMediaPath } from "@/services/video/mediaValidation";
 import type { MockPublishRequest, MockPublishResult, SocialPublisher } from "./mockPublisher";
-
-type MetaPage = {
-  id?: unknown;
-  name?: unknown;
-  access_token?: unknown;
-  tasks?: unknown;
-};
 
 type MetaResponse = {
   data?: unknown;
@@ -80,36 +74,32 @@ export class FacebookPublisher implements SocialPublisher {
     if (!request.videoPath) throw new Error("Facebook publishing requires a rendered video.");
 
     const env = getServerEnv();
-    const userToken = env.META_USER_ACCESS_TOKEN;
-    const pageId = env.META_FACEBOOK_PAGE_ID;
-    if (!userToken || !pageId) throw new Error("Facebook publishing configuration is incomplete.");
+    const pageId = request.accountId;
+    if (!pageId || !/^\d+$/.test(pageId)) throw new Error("A valid connected Facebook Page is required.");
 
     const filePath = resolveStoredMediaPath(request.videoPath);
     const fileStats = await stat(filePath).catch(() => null);
     if (!fileStats?.isFile() || !fileStats.size) throw new Error("Facebook publishing requires an existing rendered MP4.");
 
     const version = env.META_GRAPH_API_VERSION || "v26.0";
+    if (!/^v\d+\.\d+$/.test(version)) throw new Error("Facebook publishing configuration is incomplete.");
     const graphBase = `https://graph.facebook.com/${version}`;
-    const pageResponse = await facebookFetch(`${graphBase}/me/accounts?fields=name,access_token,tasks`, {
-      headers: { Authorization: `Bearer ${userToken}` },
-    }, "Facebook Page token");
-    const pagePayload = await readMetaResponse(pageResponse, "Facebook Page token request failed:", [userToken]);
-    const pages = Array.isArray(pagePayload.data) ? pagePayload.data as MetaPage[] : [];
-    const page = pages.find((candidate) => candidate.id === pageId);
-    if (!page) throw new Error("Configured Facebook Page is not accessible by the current Meta user.");
-    const pageToken = requiredString(page.access_token, "Facebook Page access token was not returned.");
+    const pageToken = await getFacebookPageAccessToken(pageId);
 
     const startResponse = await facebookFetch(`${graphBase}/${pageId}/video_reels`, {
       method: "POST",
       headers: { Authorization: `Bearer ${pageToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ upload_phase: "start" }),
     }, "Facebook Reel upload initialization");
-    const startPayload = await readMetaResponse(startResponse, "Facebook Reel upload initialization request failed:", [userToken, pageToken]);
+    const startPayload = await readMetaResponse(startResponse, "Facebook Reel upload initialization request failed:", [pageToken]);
     const videoId = requiredString(startPayload.video_id, "Facebook Reel upload initialization returned no video ID.");
-    const uploadUrl = requiredString(startPayload.upload_url, "Facebook Reel upload initialization returned no upload URL.");
+    const uploadUrl = new URL(requiredString(startPayload.upload_url, "Facebook Reel upload initialization returned no upload URL."));
+    if (uploadUrl.protocol !== "https:" || !/(^|\.)facebook\.com$/i.test(uploadUrl.hostname)) {
+      throw new Error("Facebook returned an untrusted video upload address.");
+    }
 
     const videoBuffer = await readFile(filePath);
-    const uploadResponse = await facebookFetch(uploadUrl, {
+    const uploadResponse = await facebookFetch(uploadUrl.toString(), {
       method: "POST",
       headers: {
         Authorization: `OAuth ${pageToken}`,
@@ -119,7 +109,7 @@ export class FacebookPublisher implements SocialPublisher {
       },
       body: new Uint8Array(videoBuffer),
     }, "Facebook Reel binary upload");
-    const uploadPayload = await readMetaResponse(uploadResponse, "Facebook Reel binary upload request failed:", [userToken, pageToken]);
+    const uploadPayload = await readMetaResponse(uploadResponse, "Facebook Reel binary upload request failed:", [pageToken]);
     if (uploadPayload.success !== true) throw new Error("Facebook Reel binary upload request failed: Meta did not confirm success.");
 
     const finishBody: Record<string, string> = {
@@ -135,7 +125,7 @@ export class FacebookPublisher implements SocialPublisher {
       headers: { Authorization: `Bearer ${pageToken}`, "Content-Type": "application/json" },
       body: JSON.stringify(finishBody),
     }, "Facebook Reel finalization");
-    const finishPayload = await readMetaResponse(finishResponse, "Facebook Reel finalization request failed:", [userToken, pageToken]);
+    const finishPayload = await readMetaResponse(finishResponse, "Facebook Reel finalization request failed:", [pageToken]);
     if (finishPayload.success !== true) throw new Error("Facebook Reel publish finalization failed: Meta did not confirm success.");
 
     return {

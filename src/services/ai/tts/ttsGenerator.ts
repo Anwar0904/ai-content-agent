@@ -36,7 +36,7 @@ function requestIntervalMs(): number {
 }
 
 function maxRetries(): number {
-  return Math.min(1, Math.floor(configuredNumber("TTS_MAX_RETRIES", 1)));
+  return Math.max(0, Math.floor(configuredNumber("TTS_MAX_RETRIES", 1)));
 }
 
 async function waitForTtsRateLimit() {

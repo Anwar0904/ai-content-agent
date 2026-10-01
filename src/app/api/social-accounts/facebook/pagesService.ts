@@ -1,48 +1,56 @@
 import { getServerEnv } from "@/lib/env";
+import { decryptToken } from "@/lib/security/tokenEncryption";
+import SocialAccount from "@/models/SocialAccount";
+import { fetchFacebookPages, getFacebookUserAccessToken } from "@/services/social/facebookOAuth";
 
-type Page = { id: string; name: string; tasks?: string[] };
+type Page = { id: string; name: string; tasks?: string[]; accessToken: string };
 
-export class FacebookConnectionError extends Error {}
+export type FacebookConnectionErrorCode = "not_configured" | "reauthorization_required" | "permission_required" | "unavailable";
 
-// Only imported by server route handlers. Never return Meta's raw response.
-export async function discoverFacebookPages(): Promise<Page[]> {
+export class FacebookConnectionError extends Error {
+  constructor(readonly code: FacebookConnectionErrorCode, message: string) {
+    super(message);
+  }
+}
+
+async function loadFacebookPages(): Promise<Page[]> {
   const env = getServerEnv();
-  if (!env.META_USER_ACCESS_TOKEN) {
-    throw new FacebookConnectionError("Facebook connection is not configured on the server.");
-  }
   const version = env.META_GRAPH_API_VERSION || "v26.0";
-  if (!/^v\d+\.\d+$/.test(version)) {
-    throw new FacebookConnectionError("Facebook connection is not configured on the server.");
-  }
+  if (!/^v\d+\.\d+$/.test(version)) throw new FacebookConnectionError("not_configured", "Facebook OAuth isn't configured for this workspace.");
   try {
-    const pages = new Map<string, Page>();
-    let after: string | undefined;
-    const cursors = new Set<string>();
-    do {
-      const url = new URL(`https://graph.facebook.com/${version}/me/accounts`);
-      url.searchParams.set("fields", "id,name,tasks");
-      if (after) url.searchParams.set("after", after);
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${env.META_USER_ACCESS_TOKEN}` },
-        cache: "no-store",
-        signal: AbortSignal.timeout(15000),
-      });
-      const body = await response.json();
-      if (!response.ok || body.error || !Array.isArray(body.data)) throw new Error();
-      for (const page of body.data) {
-        if (typeof page.id !== "string" || !/^\d+$/.test(page.id) || typeof page.name !== "string") throw new Error();
-        pages.set(page.id, {
-          id: page.id,
-          name: page.name,
-          ...(Array.isArray(page.tasks) ? { tasks: page.tasks.filter((task: unknown): task is string => typeof task === "string") } : {}),
-        });
-      }
-      after = body.paging?.next ? body.paging?.cursors?.after : undefined;
-      if (body.paging?.next && (typeof after !== "string" || !after || cursors.has(after))) throw new Error();
-      if (after) cursors.add(after);
-    } while (after);
-    return [...pages.values()];
-  } catch {
-    throw new FacebookConnectionError("Unable to load Facebook Pages.");
+    const accessToken = await getFacebookUserAccessToken();
+    return await fetchFacebookPages(accessToken, version);
+  } catch (error) {
+    if (error instanceof FacebookConnectionError) throw error;
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("isn't connected") || message.includes("isn't configured")) {
+      throw new FacebookConnectionError("not_configured", "Connect Facebook to this workspace before adding a Page.");
+    }
+    if (message.includes("authorization has expired")) {
+      throw new FacebookConnectionError("reauthorization_required", "Facebook authorization has expired. Reconnect Facebook to continue publishing.");
+    }
+    if (message.includes("permissions")) {
+      throw new FacebookConnectionError("permission_required", "Facebook Page permissions are missing. Reconnect Facebook and grant the requested permissions.");
+    }
+    throw new FacebookConnectionError("unavailable", "Facebook couldn't be reached. Try again.");
   }
+}
+
+// Only imported by server route handlers and the publisher. Never return Meta's raw response or a Page token to a client.
+export async function discoverFacebookPages(): Promise<Omit<Page, "accessToken">[]> {
+  return (await loadFacebookPages()).map(({ id, name, tasks }) => ({ id, name, ...(tasks ? { tasks } : {}) }));
+}
+
+export async function findFacebookPage(pageId: string) {
+  return (await loadFacebookPages()).find((page) => page.id === pageId) ?? null;
+}
+
+export async function getFacebookPageAccessToken(pageId: string): Promise<string> {
+  const account = await SocialAccount.findOne({ platform: "facebook", accountId: pageId })
+    .select("+accessTokenEncrypted")
+    .lean();
+  if (account?.accessTokenEncrypted) return decryptToken(account.accessTokenEncrypted);
+  const page = await findFacebookPage(pageId);
+  if (!page) throw new FacebookConnectionError("permission_required", "This Facebook Page isn't available to the current Facebook connection. Reconnect Facebook and grant Page permissions.");
+  return page.accessToken;
 }

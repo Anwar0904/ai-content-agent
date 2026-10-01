@@ -147,6 +147,26 @@ npm run dev
 
 Open **http://localhost:3000/dashboard**.
 
+### Facebook Page OAuth
+
+To connect Facebook Pages, create a Meta app with Facebook Login and add this exact valid OAuth redirect URI in the Meta app settings:
+
+```text
+http://localhost:3000/api/social-accounts/oauth/facebook/callback
+```
+
+Configure these server-only values in `.env.local`:
+
+```dotenv
+META_APP_ID=
+META_APP_SECRET=
+META_OAUTH_REDIRECT_URI=http://localhost:3000/api/social-accounts/oauth/facebook/callback
+META_TOKEN_ENCRYPTION_KEY=
+META_GRAPH_API_VERSION=v26.0
+```
+
+Generate the encryption key with `openssl rand -base64 32`. Use an HTTPS callback URL in production and register the same URL in Meta. The app requests `pages_show_list`, `pages_read_engagement`, and `pages_manage_posts`. Never commit these values. OAuth credentials are stored encrypted in MongoDB; changing `META_TOKEN_ENCRYPTION_KEY` makes previously stored credentials unreadable. This repository currently has one workspace-wide connection and no application-user authentication or tenant isolation, so it must not be exposed as a multi-tenant public SaaS until those controls are added.
+
 ### Quick Start
 
 1. Go to `/campaigns/new`
