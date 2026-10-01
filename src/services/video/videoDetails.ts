@@ -63,9 +63,7 @@ export async function getVideoDetail(
           .lean()
       : null,
 
-    getActiveRenderJob(
-      videoId,
-    ),
+    getActiveRenderJob(videoId),
 
     getActivePublishJobByVideo(
       videoId,

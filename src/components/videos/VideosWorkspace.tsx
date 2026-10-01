@@ -563,9 +563,6 @@ function VideoLibraryCard({
   const needsReview =
     video.status === "review";
 
-  const approved =
-    video.status === "approved";
-
   const failed =
     video.status === "failed";
 
@@ -748,8 +745,13 @@ function VideoLibraryCard({
                 : "View video"}
             </Link>
 
-            {(needsReview ||
-              approved) && (
+            {[
+              "review",
+              "approved",
+              "published",
+            ].includes(
+              video.status,
+            ) && (
               <VideoDetailActions
                 videoId={video.id}
                 status={video.status}
@@ -774,13 +776,9 @@ function VideoLibraryCard({
               "published" && (
               <Link
                 href="/publishing"
-                className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                className="inline-flex min-h-9 items-center justify-center text-xs font-semibold text-zinc-500 transition hover:text-zinc-950"
               >
-                <Send
-                  aria-hidden="true"
-                  size={13}
-                />
-                View publication
+                View publishing history
               </Link>
             )}
           </div>

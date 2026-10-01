@@ -1,42 +1,176 @@
 import type { VideoScene } from "@/types/video";
 import type { SceneTiming } from "@/services/video/timing";
 
-function assTime(seconds: number): string {
-  const centiseconds = Math.max(0, Math.round(seconds * 100));
-  const hours = Math.floor(centiseconds / 360000);
-  const minutes = Math.floor((centiseconds % 360000) / 6000);
-  const remainder = centiseconds % 6000;
-  const secondsPart = Math.floor(remainder / 100);
-  return `${hours}:${String(minutes).padStart(2, "0")}:${String(secondsPart).padStart(2, "0")}.${String(centiseconds % 100).padStart(2, "0")}`;
+function assTime(
+  seconds: number,
+): string {
+  const centiseconds =
+    Math.max(
+      0,
+      Math.round(
+        seconds * 100,
+      ),
+    );
+
+  const hours =
+    Math.floor(
+      centiseconds /
+        360000,
+    );
+
+  const minutes =
+    Math.floor(
+      (centiseconds %
+        360000) /
+        6000,
+    );
+
+  const remainder =
+    centiseconds % 6000;
+
+  const secondsPart =
+    Math.floor(
+      remainder / 100,
+    );
+
+  return `${hours}:${String(
+    minutes,
+  ).padStart(2, "0")}:${String(
+    secondsPart,
+  ).padStart(2, "0")}.${String(
+    centiseconds % 100,
+  ).padStart(2, "0")}`;
 }
 
-function escapeAss(text: string): string {
-  return text.replace(/[{}]/g, "").replace(/\\/g, "\\\\").replace(/\r?\n/g, " ");
+function escapeAss(
+  text: string,
+): string {
+  return text
+    .replace(/\\/g, "\\\\")
+    .replace(/[{}]/g, "")
+    .replace(/\r?\n/g, " ")
+    .trim();
 }
 
-function chunks(text: string, maxWords = 8): string[] {
-  const words = text.trim().split(/\s+/).filter(Boolean);
-  const result: string[] = [];
-  for (let index = 0; index < words.length; index += maxWords) result.push(words.slice(index, index + maxWords).join(" "));
-  return result.length ? result : [text.trim()];
+function chunkWords(
+  text: string,
+  maxWords = 8,
+): string[] {
+  const words =
+    text
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+  const result: string[] =
+    [];
+
+  for (
+    let index = 0;
+    index < words.length;
+    index += maxWords
+  ) {
+    result.push(
+      words
+        .slice(
+          index,
+          index +
+            maxWords,
+        )
+        .join(" "),
+    );
+  }
+
+  return result.length
+    ? result
+    : [text.trim()];
 }
 
-export function buildAssSubtitles(scenes: VideoScene[], timings: SceneTiming[]): string {
-  const events: string[] = [];
-  scenes.forEach((scene, index) => {
-    const timing = timings[index];
-    const parts = chunks(scene.narration);
-    const audioEnd = timing.start + timing.audioDuration;
-    const totalCharacters = parts.reduce((sum, part) => sum + part.length, 0) || 1;
-    let cursor = timing.start;
-    parts.forEach((part, partIndex) => {
-      const remaining = parts.length - partIndex - 1;
-      const sliceDuration = remaining === 0 ? audioEnd - cursor : timing.audioDuration * (part.length / totalCharacters);
-      const next = Math.min(audioEnd, cursor + sliceDuration);
-      events.push(`Dialogue: 0,${assTime(cursor)},${assTime(next)},Default,,0,0,0,,${escapeAss(part)}`);
-      cursor = next;
-    });
-  });
+export function buildAssSubtitles(
+  scenes: VideoScene[],
+  timings: SceneTiming[],
+): string {
+  const events: string[] =
+    [];
+
+  scenes.forEach(
+    (scene, index) => {
+      const timing =
+        timings[index];
+
+      if (!timing) {
+        return;
+      }
+
+      const parts =
+        chunkWords(
+          scene.narration,
+        );
+
+      const sceneSpeechEnd =
+        timing.start +
+        timing.audioDuration;
+
+      const totalCharacters =
+        parts.reduce(
+          (sum, part) =>
+            sum +
+            Math.max(
+              1,
+              part.length,
+            ),
+          0,
+        ) || 1;
+
+      let cursor =
+        timing.start;
+
+      parts.forEach(
+        (
+          part,
+          partIndex,
+        ) => {
+          const isLast =
+            partIndex ===
+            parts.length - 1;
+
+          const proportionalDuration =
+            timing.audioDuration *
+            (Math.max(
+              1,
+              part.length,
+            ) /
+              totalCharacters);
+
+          const next = isLast
+            ? sceneSpeechEnd
+            : Math.min(
+                sceneSpeechEnd,
+                cursor +
+                  proportionalDuration,
+              );
+
+          if (
+            next <= cursor
+          ) {
+            return;
+          }
+
+          events.push(
+            `Dialogue: 0,${assTime(
+              cursor,
+            )},${assTime(
+              next,
+            )},Default,,0,0,0,,${escapeAss(
+              part,
+            )}`,
+          );
+
+          cursor = next;
+        },
+      );
+    },
+  );
 
   return [
     "[Script Info]",

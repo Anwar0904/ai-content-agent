@@ -69,7 +69,6 @@ export function VideoSceneActions({
           result.error?.message ??
             "We couldn't prepare the video scenes.",
         );
-
         return;
       }
 
@@ -88,12 +87,8 @@ export function VideoSceneActions({
     <div className="space-y-3">
       <button
         type="button"
-        disabled={
-          isGenerating
-        }
-        onClick={
-          handleGenerate
-        }
+        disabled={isGenerating}
+        onClick={handleGenerate}
         className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isGenerating ? (

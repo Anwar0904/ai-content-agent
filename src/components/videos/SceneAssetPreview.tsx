@@ -1,8 +1,6 @@
 "use client";
 
-import {
-  ImageOff,
-} from "lucide-react";
+import { ImageOff } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
 
@@ -13,8 +11,10 @@ export function SceneAssetPreview({
   assetPath?: string;
   order: number;
 }) {
-  const [unavailable, setUnavailable] =
-    useState(!assetPath);
+  const [
+    unavailable,
+    setUnavailable,
+  ] = useState(!assetPath);
 
   if (
     unavailable ||
