@@ -76,36 +76,55 @@ async function callProvider(input: ContentGenerationInput): Promise<unknown> {
   }
 
   const ai = new GoogleGenAI({ apiKey: aiConfig.apiKey });
-  const response = await ai.models.generateContent({
-    model: aiConfig.model,
-    contents: buildContentGenerationUserPrompt(input),
-    config: {
-      systemInstruction: buildContentGenerationSystemPrompt(),
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: "OBJECT",
-        properties: {
-          videos: {
-            type: "ARRAY",
-            items: {
-              type: "OBJECT",
-              properties: {
-                title: { type: "STRING" },
-                hook: { type: "STRING" },
-                script: { type: "STRING" },
-                duration: { type: "INTEGER" },
-                caption: { type: "STRING" },
-                hashtags: { type: "ARRAY", items: { type: "STRING" } },
-                scenes: { type: "ARRAY", items: { type: "OBJECT", properties: {} } },
+  const timeoutMs = Number(process.env.AI_REQUEST_TIMEOUT_MS ?? 60000);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort(new Error(`AI generation timed out after ${timeoutMs}ms.`));
+  }, timeoutMs);
+
+  let response;
+  try {
+    response = await ai.models.generateContent({
+      model: aiConfig.model,
+      contents: buildContentGenerationUserPrompt(input),
+      config: {
+        systemInstruction: buildContentGenerationSystemPrompt(),
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            videos: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  title: { type: "STRING" },
+                  hook: { type: "STRING" },
+                  script: { type: "STRING" },
+                  duration: { type: "INTEGER" },
+                  caption: { type: "STRING" },
+                  hashtags: { type: "ARRAY", items: { type: "STRING" } },
+                  scenes: { type: "ARRAY", items: { type: "OBJECT", properties: {} } },
+                },
+                required: ["title", "hook", "script", "duration", "caption", "hashtags", "scenes"],
               },
-              required: ["title", "hook", "script", "duration", "caption", "hashtags", "scenes"],
             },
           },
+          required: ["videos"],
         },
-        required: ["videos"],
+        abortSignal: controller.signal,
       },
-    },
-  });
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`AI generation timed out after ${timeoutMs}ms.`);
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
   const content = response.text;
 
   if (typeof content !== "string") {
