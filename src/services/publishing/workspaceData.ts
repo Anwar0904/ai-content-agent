@@ -25,12 +25,18 @@ export interface PublishingRow {
   error?: string;
 }
 
+export type PublishingVideo = {
+  id: string;
+  title: string;
+  duration: number;
+  status: string;
+  rendered: boolean;
+  campaignId?: string;
+  campaign?: string;
+};
+
 export interface PublishingWorkspaceData {
-  videos: {
-    id: string;
-    title: string;
-    duration: number;
-  }[];
+  videos: PublishingVideo[];
 
   accounts: {
     id: string;
@@ -104,7 +110,7 @@ export async function getPublishingWorkspace(): Promise<
         },
       })
         .select(
-          "title scenes.duration",
+          "title status videoPath campaignId scenes.duration",
         )
         .sort({
           createdAt: -1,
@@ -389,6 +395,21 @@ export async function getPublishingWorkspace(): Promise<
                   0),
               0,
             ),
+
+          status:
+            video.status,
+
+          rendered:
+            Boolean(
+              video.videoPath,
+            ),
+
+          campaignId:
+            video.campaignId?.toString?.() ??
+            "",
+
+          campaign:
+            "Campaign unavailable",
         }),
       ),
 
