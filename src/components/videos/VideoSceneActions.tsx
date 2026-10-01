@@ -1,89 +1,135 @@
 "use client";
 
-import { LoaderCircle } from "lucide-react";
-import Image from "next/image";
+import {
+  CircleAlert,
+  LoaderCircle,
+  Sparkles,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
+
 import type { VideoScene } from "@/types/video";
 
-export function VideoSceneActions({ videoId, scenes, videoPath }: { videoId: string; scenes: VideoScene[]; videoPath?: string }) {
-  const router = useRouter();
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isRendering, setIsRendering] = useState(false);
-  const [error, setError] = useState("");
+export function VideoSceneActions({
+  videoId,
+  scenes,
+}: {
+  videoId: string;
+  scenes: VideoScene[];
+}) {
+  const router =
+    useRouter();
+
+  const [
+    isGenerating,
+    setIsGenerating,
+  ] = useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const actionLock =
+    useRef(false);
+
+  if (scenes.length > 0) {
+    return null;
+  }
 
   async function handleGenerate() {
-    if (isGenerating) return;
+    if (
+      isGenerating ||
+      actionLock.current
+    ) {
+      return;
+    }
+
+    actionLock.current = true;
+
     setError("");
     setIsGenerating(true);
+
     try {
-      const response = await fetch(`/api/videos/${videoId}/generate-scenes`, { method: "POST" });
-      const result = (await response.json()) as { error?: { message?: string } };
+      const response =
+        await fetch(
+          `/api/videos/${videoId}/generate-scenes`,
+          {
+            method: "POST",
+          },
+        );
+
+      const result =
+        (await response.json()) as {
+          error?: {
+            message?: string;
+          };
+        };
+
       if (!response.ok) {
-        setError(result.error?.message || "Unable to prepare visual assets.");
+        setError(
+          result.error?.message ??
+            "We couldn't prepare the video scenes.",
+        );
+
         return;
       }
+
       router.refresh();
     } catch {
-      setError("Unable to prepare visual assets.");
+      setError(
+        "We couldn't prepare the video scenes. Check your connection and try again.",
+      );
     } finally {
+      actionLock.current = false;
       setIsGenerating(false);
     }
   }
 
-  async function handleRender() {
-    if (isRendering) return;
-    setError("");
-    setIsRendering(true);
-    try {
-      const response = await fetch(`/api/videos/${videoId}/render`, { method: "POST" });
-      const result = (await response.json()) as { error?: { message?: string } };
-      if (!response.ok) {
-        setError(result.error?.message || "Video rendering failed. Please try again.");
-        return;
-      }
-      router.refresh();
-    } catch {
-      setError("Video rendering failed. Please try again.");
-    } finally {
-      setIsRendering(false);
-    }
-  }
-
-  if (scenes.length === 0) {
-    return (
-      <div style={{ display: "grid", gap: 6 }}>
-        <button className={`primary-link${isGenerating ? " disabled-action" : ""}`} disabled={isGenerating} onClick={handleGenerate} type="button">
-          {isGenerating ? <><LoaderCircle aria-hidden="true" className="button-spinner" size={14} /> Preparing visual assets...</> : "Generate scenes"}
-        </button>
-        {error && <span className="form-error">{error}</span>}
-      </div>
-    );
-  }
-
   return (
-    <div style={{ display: "grid", gap: 8 }}>
-      {videoPath ? (
-        <video className="video-preview" controls playsInline src={videoPath} />
-      ) : (
-        <button className={`primary-link${isRendering ? " disabled-action" : ""}`} disabled={isRendering} onClick={handleRender} type="button">
-          {isRendering ? <><LoaderCircle aria-hidden="true" className="button-spinner" size={14} /> Rendering video...</> : "Render video"}
-        </button>
+    <div className="space-y-3">
+      <button
+        type="button"
+        disabled={
+          isGenerating
+        }
+        onClick={
+          handleGenerate
+        }
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {isGenerating ? (
+          <>
+            <LoaderCircle
+              aria-hidden="true"
+              className="animate-spin"
+              size={15}
+            />
+            Preparing scenes...
+          </>
+        ) : (
+          <>
+            <Sparkles
+              aria-hidden="true"
+              size={15}
+            />
+            Generate scenes
+          </>
+        )}
+      </button>
+
+      {error && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700"
+        >
+          <CircleAlert
+            aria-hidden="true"
+            className="mt-0.5 shrink-0"
+            size={14}
+          />
+
+          {error}
+        </div>
       )}
-      {error && <span className="form-error">{error}</span>}
-      {!videoPath && <div className="scene-list">
-        {scenes.map((scene) => (
-        <article className="scene-item" key={scene.order}>
-          {scene.assetPath && <Image alt="" className="scene-image" height={104} src={scene.assetPath} width={72} />}
-          <div className="scene-copy">
-            <div className="scene-meta"><strong>Scene {String(scene.order).padStart(2, "0")}</strong><span>{scene.duration} sec</span></div>
-            <p>{scene.narration}</p>
-            <span className="section-caption">{scene.assetType === "ai" ? "AI generated" : scene.assetType === "stock" ? `Stock · ${scene.assetProvider || "external"}` : "Local fallback"}{scene.credit ? ` · ${scene.credit}` : ""}</span>
-            {scene.sourceUrl && <a className="text-link" href={scene.sourceUrl} rel="noreferrer" target="_blank">View source</a>}
-          </div>
-        </article>
-        ))}
-      </div>}
     </div>
   );
 }

@@ -106,13 +106,19 @@ export interface CampaignDetail {
 
 export interface VideoRow {
   id: string;
-  title: string;
+
+  campaignId: string;
   campaign: string;
+
+  title: string;
   status: string;
+
   createdAt: Date;
   updatedAt?: Date;
+
   scenes: VideoScene[];
   videoPath?: string;
+
   templateId?: string;
   templateLabel?: string;
 }
@@ -741,43 +747,51 @@ export function getVideoRows(): Promise<
     );
 
     return videos.map((video) => {
-      const campaignId =
-        video.campaignId?.toString();
+  const campaignId =
+    video.campaignId?.toString();
 
-      return {
-        id: video._id.toString(),
+  return {
+    id: video._id.toString(),
 
-        title:
-          video.title?.trim() ||
-          "Untitled video",
+    campaignId:
+      campaignId ?? "",
 
-        campaign:
-          (campaignId
-            ? campaignTitles.get(campaignId)
-            : undefined) ??
-          "Campaign unavailable",
+    title:
+      video.title?.trim() ||
+      "Untitled video",
 
-        status:
-          video.status ?? "unknown",
+    campaign:
+      (campaignId
+        ? campaignTitles.get(campaignId)
+        : undefined) ??
+      "Campaign unavailable",
 
-        createdAt: video.createdAt,
+    status:
+      video.status ?? "unknown",
 
-        updatedAt: video.updatedAt,
+    createdAt:
+      video.createdAt,
 
-        scenes: mapScenes(video.scenes),
+    updatedAt:
+      video.updatedAt,
 
-        videoPath: toPublicMediaUrl(
-          video.videoPath,
-        ),
+    scenes:
+      mapScenes(video.scenes),
 
-        templateId: video.templateId,
+    videoPath:
+      toPublicMediaUrl(
+        video.videoPath,
+      ),
 
-        templateLabel:
-          getVideoTemplateLabel(
-            video.templateId,
-          ),
-      };
-    });
+    templateId:
+      video.templateId,
+
+    templateLabel:
+      getVideoTemplateLabel(
+        video.templateId,
+      ),
+  };
+});
   });
 }
 
