@@ -125,16 +125,24 @@ export interface VideoRow {
 
 export interface SocialAccountRow {
   id: string;
-  platform: "facebook" | "instagram";
+
+  platform:
+    | "facebook"
+    | "instagram";
+
   accountName: string;
   accountId: string;
+
   status: string;
+
   username?: string;
   profileUrl?: string;
+
+  expiresAt?: Date;
+
   createdAt: Date;
   updatedAt: Date;
 }
-
 export interface PublishJobRow {
   id: string;
   video: string;
@@ -802,47 +810,66 @@ export function getVideoRows(): Promise<
 export function getSocialAccountRows(): Promise<
   SocialAccountRow[] | null
 > {
-  return withDatabase(async () => {
-    const accounts = await SocialAccount.find()
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .select(
-        [
-          "platform",
-          "accountName",
-          "accountId",
-          "status",
-          "username",
-          "profileUrl",
-          "createdAt",
-          "updatedAt",
-        ].join(" "),
-      )
-      .lean();
+  return withDatabase(
+    async () => {
+      const accounts =
+        await SocialAccount.find()
+          .sort({
+            createdAt: -1,
+          })
+          .limit(50)
+          .select(
+            [
+              "platform",
+              "accountName",
+              "accountId",
+              "status",
+              "username",
+              "profileUrl",
+              "expiresAt",
+              "createdAt",
+              "updatedAt",
+            ].join(" "),
+          )
+          .lean();
 
-    return accounts.map((account) => ({
-      id: account._id.toString(),
+      return accounts.map(
+        (account) => ({
+          id:
+            account._id.toString(),
 
-      platform: account.platform,
+          platform:
+            account.platform,
 
-      accountName:
-        account.accountName?.trim() ||
-        "Unnamed account",
+          accountName:
+            account.accountName?.trim() ||
+            "Unnamed account",
 
-      accountId: account.accountId,
+          accountId:
+            account.accountId,
 
-      status:
-        account.status ?? "unknown",
+          status:
+            account.status ??
+            "unknown",
 
-      username: account.username,
+          username:
+            account.username,
 
-      profileUrl: account.profileUrl,
+          profileUrl:
+            account.profileUrl,
 
-      createdAt: account.createdAt,
+          expiresAt:
+            account.expiresAt,
 
-      updatedAt: account.updatedAt,
-    }));
-  });
+          createdAt:
+            account.createdAt,
+
+          updatedAt:
+            account.updatedAt,
+        }),
+      );
+    },
+  );
 }
 
 /* -------------------------------------------------------------------------- */
